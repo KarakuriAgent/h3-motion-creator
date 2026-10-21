@@ -5,6 +5,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { resolveTools, type Paths } from './config.js'
 import { parseGlb, readVrmaInfo } from './gltf.js'
+import { commandPath, pythonEnv } from './platform.js'
 import { renderVrmVideo } from './render.js'
 import { JOB_STATE_LABEL, type Job } from './shared.js'
 import type { Store } from './store.js'
@@ -14,7 +15,9 @@ export const PROOF_FPS = 30
 
 function run(cmd: string, args: string[], cwd?: string): Promise<string> {
   return new Promise((ok, ng) =>
-    execFile(cmd, args, { cwd, maxBuffer: 1 << 26, timeout: 30 * 60 * 1000 }, (err, stdout, stderr) => (err ? ng(new Error(`${cmd} ${args[0] ?? ''}: ${String(stderr || err.message).trim().split('\n').slice(-5).join(' / ')}`)) : ok(String(stdout)))),
+    execFile(cmd, args, { cwd, maxBuffer: 1 << 26, timeout: 30 * 60 * 1000, env: pythonEnv(), windowsHide: true }, (err, stdout, stderr) =>
+      err ? ng(new Error(`${cmd} ${args[0] ?? ''}: ${String(stderr || err.message).trim().split(/\r?\n/).slice(-5).join(' / ')}`)) : ok(String(stdout)),
+    ),
   )
 }
 
@@ -27,7 +30,7 @@ export function glbFrames(path: string): number {
 }
 
 export async function ffprobeSize(path: string): Promise<{ width: number; height: number; duration: number }> {
-  const out = await run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:format=duration', '-of', 'json', path])
+  const out = await run(commandPath('ffprobe'), ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height:format=duration', '-of', 'json', path])
   const j = JSON.parse(out)
   return { width: j.streams[0].width, height: j.streams[0].height, duration: Number(j.format.duration) }
 }
@@ -83,7 +86,8 @@ export class ProofBaker {
     const dir = store.jobDir(id)
     try {
       const t = resolveTools(this.ctx.paths.root, this.ctx.settings())
-      if (!existsSync(t.gemxPython)) throw new Error(`GEM-X の python がありません（${t.gemxPython}）。環境チェックを見る`)
+      const py = t.gemxPython
+      if (!py || !existsSync(py)) throw new Error(`GEM-X の python がありません（${py ?? `${t.gemxPath} の中に見つからない`}）。環境チェックを見る`)
       const src = join(dir, 'source.mp4')
       const frames = glbFrames(join(dir, 'bones.glb'))
       const { width, height } = await ffprobeSize(src)
@@ -93,7 +97,7 @@ export class ProofBaker {
       const vrma = readVrmaInfo(readFileSync(join(dir, 'motion.vrma')))
       const tools = join(this.ctx.paths.root, 'tools')
       // ① 骨
-      await run(t.gemxPython, [join(tools, 'render_bones.py'), '--glb', join(dir, 'bones.glb'), '--stats', join(dir, 'stats.json'), '--source', src, '--out', join(dir, 'bones.mp4'), '--width', String(w), '--height', String(h), '--fps', String(PROOF_FPS)], tools)
+      await run(py, [join(tools, 'render_bones.py'), '--glb', join(dir, 'bones.glb'), '--stats', join(dir, 'stats.json'), '--source', src, '--out', join(dir, 'bones.mp4'), '--width', String(w), '--height', String(h), '--fps', String(PROOF_FPS)], tools)
       // ② VRM
       await renderVrmVideo(this.ctx.serverUrl, {
         vrmUrl: `/api/models/${job.modelId}/model.vrm`,
@@ -113,7 +117,7 @@ export class ProofBaker {
         sourceStartSec: vrma.sourceStartSec,
         vrmaSec: vrma.duration,
       }
-      await run(t.gemxPython, [join(tools, 'make_compare.py'), '--source', src, '--bones', join(dir, 'bones.mp4'), '--vrm', join(dir, 'vrm.mp4'), '--frames', String(frames), '--fps', String(PROOF_FPS), '--info', JSON.stringify(info), '--out', join(dir, 'compare.mp4')], tools)
+      await run(py, [join(tools, 'make_compare.py'), '--source', src, '--bones', join(dir, 'bones.mp4'), '--vrm', join(dir, 'vrm.mp4'), '--frames', String(frames), '--fps', String(PROOF_FPS), '--info', JSON.stringify(info), '--out', join(dir, 'compare.mp4')], tools)
       job = store.getJob(id)!
       for (const n of ['bones.mp4', 'vrm.mp4', 'compare.mp4'] as const) store.markProof(job, n, statSync(join(dir, n)).size)
       job.proofs = { state: 'done', at: new Date().toISOString() }

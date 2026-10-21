@@ -1,8 +1,9 @@
 // 起動時の環境チェック。probeEnv が実際に見て回り（パス・URL・コマンド）、judgeEnv が見た結果から項目ごとの判定を作る（judgeEnv は副作用なし。テストはこちら）
-import { execFile, spawnSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveTools } from './config.js'
+import { resolvePaths, resolveTools } from './config.js'
+import { ffmpegInstallHint, findOnPath, pythonCandidates, pythonEnv } from './platform.js'
 import type { CheckItem, EnvReport, Settings } from './shared.js'
 import { loadWorkflow, MODEL_FOLDERS, modelFiles, NODE_SOURCES, requiredClassTypes, type ModelFileNeed } from './workflow.js'
 
@@ -18,22 +19,25 @@ export const GEMX_WEIGHTS = [
 
 /** 見て回った結果（そのままの事実） */
 export interface EnvFacts {
-  gpu: { name: string; memoryMiB: number; usedMiB: number } | null
   ffmpeg: { ffmpeg: string | null; ffprobe: string | null }
-  comfy: { dirExists: boolean; hasMain: boolean; python: string | null }
+  /** python: 見つかった ComfyUI の python（無ければ null）。pythonLooked: 見た所（設定の python か、探した候補） */
+  comfy: { dirExists: boolean; hasMain: boolean; python: string | null; pythonLooked: string[] }
   sageattention: { ok: boolean; error?: string } | null
   models: { need: ModelFileNeed; path: string | null; inObjectInfo: boolean }[]
   nodeSources: { label: string; kind: 'custom' | 'core'; found: string | null; repo?: string; classTypes: string[] }[]
   url: { reachable: boolean; version?: string; error?: string }
   objectInfo: { missing: string[]; required: string[] } | null
   gemx: { dirExists: boolean; hasDemo: boolean }
-  gemxVenv: { python: string; exists: boolean; ok: boolean; torch?: string; cuda?: boolean; error?: string; missingModules?: string[] }
+  /** python: 見つかった GEM-X の python（無ければ null）。pythonLooked: 見た所 */
+  gemxVenv: { python: string | null; pythonLooked: string[]; ok: boolean; torch?: string; error?: string; missingModules?: string[] }
   gemxWeights: { rel: string; exists: boolean }[]
 }
 
 export interface EnvContext {
   root: string
   settings: Settings
+  /** 既定 process.platform（直し方の文を OS に合わせる） */
+  platform?: NodeJS.Platform
 }
 
 // --- 見て回る ---
@@ -41,23 +45,11 @@ export interface EnvContext {
 /** コマンドを動かして終わりの状態と出力を返す（サーバを止めないよう非同期で） */
 function run(cmd: string, args: string[], opts: { cwd?: string; timeout?: number } = {}): Promise<{ status: number | null; stdout: string; stderr: string; error?: string }> {
   return new Promise((ok) => {
-    execFile(cmd, args, { encoding: 'utf8', timeout: opts.timeout ?? 60000, cwd: opts.cwd, maxBuffer: 1 << 24 }, (err, stdout, stderr) => {
+    execFile(cmd, args, { encoding: 'utf8', timeout: opts.timeout ?? 60000, cwd: opts.cwd, maxBuffer: 1 << 24, env: pythonEnv(), windowsHide: true }, (err, stdout, stderr) => {
       const code = err ? (typeof (err as NodeJS.ErrnoException & { code?: unknown }).code === 'number' ? ((err as unknown as { code: number }).code) : null) : 0
       ok({ status: code, stdout: String(stdout ?? ''), stderr: String(stderr ?? ''), error: err && code === null ? err.message : undefined })
     })
   })
-}
-
-function which(cmd: string): string | null {
-  const r = spawnSync('which', [cmd], { encoding: 'utf8' })
-  return r.status === 0 ? r.stdout.trim() || null : null
-}
-
-function probeGpu(): EnvFacts['gpu'] {
-  const r = spawnSync('nvidia-smi', ['--query-gpu=name,memory.total,memory.used', '--format=csv,noheader,nounits'], { encoding: 'utf8', timeout: 15000 })
-  if (r.status !== 0 || !r.stdout.trim()) return null
-  const [name, total, used] = r.stdout.trim().split('\n')[0].split(/,\s*/)
-  return { name, memoryMiB: Number(total), usedMiB: Number(used) }
 }
 
 /** モデルのファイルを models/<フォルダ>/ の下で探す（3 段まで。名前に / があればその相対パス） */
@@ -143,51 +135,47 @@ export async function probeEnv(ctx: EnvContext): Promise<EnvFacts> {
 
   // ComfyUI のフォルダ
   const comfyDir = existsSync(t.comfyuiPath)
-  const comfyPython = ['venv/bin/python', '.venv/bin/python'].map((p) => join(t.comfyuiPath, p)).find((p) => existsSync(p)) ?? null
+  const comfyPython = t.comfyuiPython && existsSync(t.comfyuiPython) ? t.comfyuiPython : null
+  const looked = (setting: string | null, dir: string) => (setting ? [setting] : pythonCandidates(dir))
+  const pp = resolvePaths(ctx.root, ctx.settings)
   let sage: EnvFacts['sageattention'] = null
   if (comfyPython) {
     const r = await run(comfyPython, ['-c', 'import sageattention'], { timeout: 120000, cwd: t.comfyuiPath })
-    sage = r.status === 0 ? { ok: true } : { ok: false, error: (r.stderr || r.error || '').trim().split('\n').pop() }
+    sage = r.status === 0 ? { ok: true } : { ok: false, error: lastLine(r.stderr || r.error || '') }
   }
 
   // GEM-X
-  const gemxVenv: EnvFacts['gemxVenv'] = { python: t.gemxPython, exists: existsSync(t.gemxPython), ok: false }
-  if (gemxVenv.exists) {
+  const gemxPython = t.gemxPython && existsSync(t.gemxPython) ? t.gemxPython : null
+  const gemxVenv: EnvFacts['gemxVenv'] = { python: gemxPython, pythonLooked: looked(pp.gemxPythonSetting, t.gemxPath), ok: false }
+  if (gemxPython) {
     const code = [
       'import importlib, json, sys',
       'missing = [m for m in ["torch", "numpy", "scipy", "cv2", "PIL", "hydra", "onnxruntime"] if importlib.util.find_spec(m) is None]',
       'out = {"missing": missing}',
       'try:',
-      '    import torch; out["torch"] = torch.__version__; out["cuda"] = bool(torch.cuda.is_available())',
+      '    import torch; out["torch"] = torch.__version__',
       'except Exception as e:',
       '    out["error"] = str(e)',
-      'try:',
-      '    import onnxruntime; out["ort"] = onnxruntime.get_available_providers()',
-      'except Exception:',
-      '    pass',
       'print(json.dumps(out))',
     ].join('\n')
-    const r = await run(t.gemxPython, ['-c', code], { timeout: 180000, cwd: t.gemxPath })
+    const r = await run(gemxPython, ['-c', code], { timeout: 180000, cwd: t.gemxPath })
     try {
-      const o = JSON.parse(r.stdout.trim().split('\n').pop() ?? '{}') as { missing: string[]; torch?: string; cuda?: boolean; error?: string; ort?: string[] }
-      const missing = [...o.missing]
-      if (o.ort && !o.ort.includes('CUDAExecutionProvider')) missing.push('onnxruntime-gpu（CUDAExecutionProvider）')
-      Object.assign(gemxVenv, { torch: o.torch, cuda: o.cuda, error: o.error, missingModules: missing, ok: !missing.length && !!o.cuda })
+      const o = JSON.parse(lastLine(r.stdout) || '{}') as { missing: string[]; torch?: string; error?: string }
+      Object.assign(gemxVenv, { torch: o.torch, error: o.error, missingModules: o.missing, ok: !o.missing.length && !o.error })
     } catch {
-      gemxVenv.error = (r.stderr || r.error || 'python を動かせません').trim().split('\n').pop()
+      gemxVenv.error = lastLine(r.stderr || r.error || '') || 'python を動かせません'
     }
   }
 
   return {
-    gpu: probeGpu(),
-    ffmpeg: { ffmpeg: which('ffmpeg'), ffprobe: which('ffprobe') },
-    comfy: { dirExists: comfyDir, hasMain: existsSync(join(t.comfyuiPath, 'main.py')), python: comfyPython },
+    ffmpeg: { ffmpeg: findOnPath('ffmpeg'), ffprobe: findOnPath('ffprobe') },
+    comfy: { dirExists: comfyDir, hasMain: existsSync(join(t.comfyuiPath, 'main.py')), python: comfyPython, pythonLooked: looked(pp.comfyuiPythonSetting, t.comfyuiPath) },
     sageattention: sage,
     models: needs.map((need) => ({ need, path: comfyDir ? findModelFile(t.comfyuiPath, need) : null, inObjectInfo: choices(need.loader, need.input).includes(need.name) })),
     nodeSources: NODE_SOURCES.map((s) => ({ label: s.label, kind: s.kind, repo: s.repo, classTypes: s.classTypes, found: comfyDir ? findNodeSource(t.comfyuiPath, s) : null })),
     url,
     objectInfo: objectInfo ? { required, missing: required.filter((c) => !objectInfo![c]) } : null,
-    gemx: { dirExists: existsSync(t.gemxPath), hasDemo: existsSync(join(t.gemxPath, 'scripts/demo/demo_soma.py')) },
+    gemx: { dirExists: existsSync(t.gemxPath), hasDemo: existsSync(join(t.gemxPath, 'scripts', 'demo', 'demo_soma.py')) },
     gemxVenv,
     gemxWeights: GEMX_WEIGHTS.map((rel) => ({ rel, exists: existsSync(join(t.gemxPath, rel)) })),
   }
@@ -197,7 +185,8 @@ export async function probeEnv(ctx: EnvContext): Promise<EnvFacts> {
 
 /** 見た結果から、項目ごとの OK・無いを決める */
 export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
-  const t = resolveTools(ctx.root, ctx.settings)
+  const t = resolvePaths(ctx.root, ctx.settings)
+  const platform = ctx.platform ?? process.platform
   const items: CheckItem[] = []
   const where = (fromSettings: boolean, p: string, vendor: string) => (fromSettings ? `設定のパス ${p}` : `パス未指定 → ${vendor} を見た`)
   const comfyWhere = where(t.comfyuiPathFromSettings, t.comfyuiPath, 'vendor/ComfyUI')
@@ -205,18 +194,11 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
   const comfyOk = f.comfy.dirExists && f.comfy.hasMain
 
   items.push({
-    id: 'gpu',
-    label: 'GPU（CUDA）',
-    state: f.gpu ? 'ok' : 'missing',
-    detail: f.gpu ? `${f.gpu.name} · ${(f.gpu.memoryMiB / 1024).toFixed(0)} GB（使用中 ${(f.gpu.usedMiB / 1024).toFixed(1)} GB）` : 'nvidia-smi で NVIDIA の GPU が見つからない',
-    fix: f.gpu ? undefined : 'NVIDIA のドライバを入れ、nvidia-smi が動くようにする（システムの CUDA・ドライバの入れ替えは人に確かめてから）',
-  })
-  items.push({
     id: 'ffmpeg',
     label: 'ffmpeg',
     state: f.ffmpeg.ffmpeg && f.ffmpeg.ffprobe ? 'ok' : 'missing',
     detail: f.ffmpeg.ffmpeg ? `${f.ffmpeg.ffmpeg}${f.ffmpeg.ffprobe ? '' : '（ffprobe が無い）'}` : 'PATH に ffmpeg が無い',
-    fix: f.ffmpeg.ffmpeg && f.ffmpeg.ffprobe ? undefined : 'ffmpeg と ffprobe を入れる（例: sudo apt install ffmpeg。sudo が要るなら人に頼む）',
+    fix: f.ffmpeg.ffmpeg && f.ffmpeg.ffprobe ? undefined : `ffmpeg と ffprobe を入れて PATH に通す（${ffmpegInstallHint(platform)}）`,
   })
   items.push({
     id: 'comfyui_path',
@@ -236,7 +218,7 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
     label: 'ComfyUI が起動している',
     state: f.url.reachable && f.objectInfo ? 'ok' : 'missing',
     detail: f.url.reachable ? `${ctx.settings.comfyuiUrl} の /system_stats · /object_info（ComfyUI ${f.url.version ?? '?'}）` : `${ctx.settings.comfyuiUrl} につながらない（${f.url.error ?? '?'}）`,
-    fix: f.url.reachable && f.objectInfo ? undefined : `ComfyUI を起動する（${t.comfyuiPath} で venv の python main.py --listen 127.0.0.1 --port 8188 など）か、設定の URL を直す`,
+    fix: f.url.reachable && f.objectInfo ? undefined : `ComfyUI を起動する（${t.comfyuiPath} で ComfyUI の python main.py --listen 127.0.0.1 --port 8188 など）か、設定の URL を直す`,
   })
   const modelItem = (group: 'main' | 'support'): CheckItem => {
     const ms = f.models.filter((m) => m.need.group === group)
@@ -272,8 +254,18 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
     id: 'sageattention',
     label: 'SageAttention（ComfyUI の venv）',
     state: f.sageattention?.ok ? 'ok' : 'missing',
-    detail: !f.comfy.python ? 'ComfyUI の venv（venv/ か .venv/）が無い' : f.sageattention?.ok ? `${f.comfy.python} で import sageattention` : `import sageattention に失敗（${f.sageattention?.error ?? '?'}）`,
-    fix: f.sageattention?.ok ? undefined : 'ComfyUI の venv に SageAttention を入れる（GPU と torch の版に合う物。docs/setup.md §2.3）。入れたら ComfyUI の再起動が要る（人に確かめる）',
+    detail: !f.comfy.python
+      ? `ComfyUI の python が見つからない（見た所: ${f.comfy.pythonLooked.join('・')}）`
+      : f.sageattention?.ok
+        ? `${f.comfy.python} で import sageattention`
+        : `import sageattention に失敗（${f.sageattention?.error ?? '?'}）`,
+    fix: f.sageattention?.ok
+      ? undefined
+      : !f.comfy.python && t.comfyuiPythonSetting
+        ? `設定の「ComfyUI の python」${t.comfyuiPythonSetting} が無い。パスを直すか、空にして自動で探させる`
+        : !f.comfy.python && comfyOk
+        ? 'ComfyUI の python が別の所にあるなら、設定の「ComfyUI の python」にそのパスを書く。無ければ ComfyUI の venv を作る（docs/setup.md §2.1）'
+        : 'ComfyUI の python に SageAttention を入れる（GPU と torch の版に合う物。docs/setup.md §2.3）。入れたら ComfyUI の再起動が要る（人に確かめる）',
   })
   items.push({
     id: 'comfyui_nodes',
@@ -300,14 +292,20 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
   })
   items.push({
     id: 'gemx_venv',
-    label: 'GEM-X の venv（torch・CUDA・onnxruntime-gpu）',
+    label: 'GEM-X の venv（torch・onnxruntime ほか）',
     state: f.gemxVenv.ok ? 'ok' : 'missing',
-    detail: !f.gemxVenv.exists
-      ? `${f.gemxVenv.python} が無い`
+    detail: !f.gemxVenv.python
+      ? `GEM-X の python が見つからない（見た所: ${f.gemxVenv.pythonLooked.join('・')}）`
       : f.gemxVenv.ok
-        ? `torch ${f.gemxVenv.torch}（CUDA が使える）`
-        : `足りない: ${[...(f.gemxVenv.missingModules ?? []), ...(f.gemxVenv.cuda === false ? ['torch で CUDA が使えない'] : []), ...(f.gemxVenv.error ? [f.gemxVenv.error] : [])].join('、') || '?'}`,
-    fix: f.gemxVenv.ok ? undefined : 'GEM-X のフォルダに uv で .venv を作り、GPU に合う CUDA の版の PyTorch・SOMA・onnxruntime-gpu を入れる（docs/setup.md §4）',
+        ? `${f.gemxVenv.python} · torch ${f.gemxVenv.torch}`
+        : `足りない: ${[...(f.gemxVenv.missingModules ?? []), ...(f.gemxVenv.error ? [f.gemxVenv.error] : [])].join('、') || '?'}`,
+    fix: f.gemxVenv.ok
+      ? undefined
+      : !f.gemxVenv.python && t.gemxPythonSetting
+        ? `設定の「GEM-X の python」${t.gemxPythonSetting} が無い。パスを直すか、空にして自動で探させる`
+        : !f.gemxVenv.python && gemxOk
+        ? 'GEM-X の python が別の所にあるなら、設定の「GEM-X の python」にそのパスを書く。無ければ GEM-X のフォルダに uv で .venv を作り、GPU に合う CUDA の版の PyTorch・SOMA・onnxruntime-gpu を入れる（docs/setup.md §4）'
+        : 'GEM-X のフォルダに uv で .venv を作り、GPU に合う CUDA の版の PyTorch・SOMA・onnxruntime-gpu を入れる（docs/setup.md §4）',
   })
   const wMissing = f.gemxWeights.filter((w) => !w.exists)
   items.push({
@@ -321,10 +319,24 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
   return {
     checkedAt: new Date().toISOString(),
     settings: ctx.settings,
-    resolved: { comfyuiPath: t.comfyuiPath, comfyuiPathFromSettings: t.comfyuiPathFromSettings, gemxPath: t.gemxPath, gemxPathFromSettings: t.gemxPathFromSettings },
+    resolved: {
+      comfyuiPath: t.comfyuiPath,
+      comfyuiPathFromSettings: t.comfyuiPathFromSettings,
+      gemxPath: t.gemxPath,
+      gemxPathFromSettings: t.gemxPathFromSettings,
+      comfyuiPython: f.comfy.python,
+      comfyuiPythonFromSettings: !!t.comfyuiPythonSetting,
+      gemxPython: f.gemxVenv.python,
+      gemxPythonFromSettings: !!t.gemxPythonSetting,
+    },
     items,
     ready,
   }
+}
+
+/** 出力の最後の空でない行（Windows の \r\n も） */
+function lastLine(s: string): string {
+  return s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() ?? ''
 }
 
 export async function checkEnv(ctx: EnvContext): Promise<EnvReport> {

@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import { chromium, type Browser } from 'playwright-core'
+import { commandPath } from './platform.js'
 
 let browserP: Promise<Browser> | null = null
 
@@ -75,12 +76,16 @@ export async function renderVrmVideo(
   a: { vrmUrl: string; vrmaUrl: string; out: string; width: number; height: number; fps: number; frames: number; sourceStartSec: number },
 ): Promise<void> {
   const { p, ctx, errors } = await openPage(serverUrl, 'vrm-video.html')
-  const ff = spawn('ffmpeg', ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'mjpeg', '-framerate', String(a.fps), '-i', '-', '-an', '-c:v', 'libx264', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', a.out], {
+  const ff = spawn(commandPath('ffmpeg'), ['-v', 'error', '-y', '-f', 'image2pipe', '-c:v', 'mjpeg', '-framerate', String(a.fps), '-i', '-', '-an', '-c:v', 'libx264', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', a.out], {
     stdio: ['pipe', 'ignore', 'pipe'],
+    windowsHide: true,
   })
   let ffErr = ''
   ff.stderr.on('data', (d) => (ffErr += d))
-  const done = new Promise<void>((ok, ng) => ff.on('close', (c) => (c === 0 ? ok() : ng(new Error(`ffmpeg が失敗しました: ${ffErr.trim()}`)))))
+  const done = new Promise<void>((ok, ng) => {
+    ff.on('error', (e) => ng(new Error(`ffmpeg を起動できません: ${e.message}`)))
+    ff.on('close', (c) => (c === 0 ? ok() : ng(new Error(`ffmpeg が失敗しました: ${ffErr.trim()}`))))
+  })
   try {
     await p.evaluate((x) => (window as any).setup(x), { vrmUrl: a.vrmUrl, vrmaUrl: a.vrmaUrl, width: a.width, height: a.height })
     for (let i = 0; i < a.frames; i++) {

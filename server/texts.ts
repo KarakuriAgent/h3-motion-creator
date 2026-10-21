@@ -1,4 +1,5 @@
 // 人がコピーしてエージェントに貼る文: 依頼文とセットアップの依頼文
+import { join } from 'node:path'
 import type { EnvReport, Job, ModelInfo } from './shared.js'
 import { videoSize } from './shared.js'
 
@@ -63,13 +64,13 @@ export function requestText(job: Job, model: ModelInfo | undefined, c: TextConte
     ...(job.notes ? [`■ 注文: ${job.notes}`] : []),
     `■ キャラクター: ${model ? `${model.fileName}（三面図は依頼の中身にある）` : job.modelId}`,
     `■ 依頼の中身・三面図・設定のパス: curl -s ${api}`,
-    `■ 手順書: ${c.appRoot}/docs/agent-guide.md（最初に全部読む。H3 のプロンプトの決まりは docs/h3-prompt.md）`,
+    `■ 手順書: ${join(c.appRoot, 'docs', 'agent-guide.md')}（最初に全部読む。H3 のプロンプトの決まりは docs/h3-prompt.md）`,
     '',
     '進め方:',
     `1. curl -s ${api} で、三面図（threeview.path）・ComfyUI の URL・GEM-X のパス・同梱のワークフローと道具の場所を取る。`,
     `2. docs/h3-prompt.md の決まりで英文の指示（Ref2VA の 6 節。三面図は <Picture 1>）を書き、tools/h3_r2v.mjs で workflows/minimax_h3_r2v_turbo.json に三面図・指示・尺・大きさ・seed を入れて ComfyUI へ直接投げる。`,
     '   できた動画のコマを見て、崩れていれば（手足の数・体のすり抜け・全身が切れる・人が増える・カメラが動く）seed を変えて焼き直す。',
-    '3. GPU のメモリが足りなければ tools/free_vram.sh（任意。ComfyUI は止めない）。tools/gemx.sh で GEM-X の推定と bones.glb・stats.json を作り、tools/to_vrma/to_vrma.mjs で motion.vrma にする。',
+    '3. GPU のメモリが足りなければ node tools/free_vram.mjs（任意。ComfyUI は止めない）。node tools/gemx.mjs で GEM-X の推定と bones.glb・stats.json を作り、node tools/to_vrma/to_vrma.mjs で motion.vrma にする。',
     '   ループにするか・その場にするか・前の向きをどこで測るかは、動きを見て決めてよい。',
     `4. 進み具合は POST ${api}/status、結果は PUT ${api}/files/{source.mp4, bones.glb, motion.vrma, stats.json}（--data-binary @ファイル）。`,
     '5. 最後に status を done にして、使った seed・焼き直しの回数・所見（足の滑り・震え・手の位置・ループやその場にしたか）を書く。確認用の動画はアプリが焼く。',
@@ -85,11 +86,13 @@ export function setupRequestText(env: EnvReport, c: TextContext): string | null 
     'h3-motion-creator のセットアップの依頼です。',
     `アプリのサーバ: ${c.serverUrl}（GET ${c.serverUrl}/api/env で今の結果が取れる）`,
     `プロジェクトのフォルダ: ${c.appRoot}`,
-    `手順書: ${c.appRoot}/docs/setup.md（最初に読む）`,
+    `手順書: ${join(c.appRoot, 'docs', 'setup.md')}（最初に読む）`,
     '',
     '今の設定:',
     `- ComfyUI のパス: ${env.settings.comfyuiPath || '（空 → vendor/ComfyUI）'} / URL: ${env.settings.comfyuiUrl}`,
     `- GEM-X のパス: ${env.settings.gemxPath || '（空 → vendor/GEM-X）'}`,
+    `- ComfyUI の python: ${env.settings.comfyuiPython || `（空 → 自動。見つかった物: ${env.resolved.comfyuiPython ?? 'なし'}）`}`,
+    `- GEM-X の python: ${env.settings.gemxPython || `（空 → 自動。見つかった物: ${env.resolved.gemxPython ?? 'なし'}）`}`,
     '',
     '足りない物:',
     ...missing.flatMap((i) => [`- ${i.label}: ${i.detail}`, ...(i.fix ? [`  → ${i.fix}`] : [])]),
@@ -100,7 +103,7 @@ export function setupRequestText(env: EnvReport, c: TextContext): string | null 
     '- 既にある ComfyUI・システムの CUDA とドライバは変えない（ComfyUI の venv に足すのは、足りない物だけ）。新しく入れる物はプロジェクトの vendor/ の中に。',
     '- 動いている ComfyUI を止める・再起動するときは、先に人に確かめる。',
     '- モデルの重みは配布元から取り、それぞれの配布元の決まりに従う。アプリのリポジトリには入れない。',
-    `- vendor/ に作ったら PUT ${c.serverUrl}/api/settings にそのパスを書く（例: {"gemxPath": "${c.appRoot}/vendor/GEM-X"}）。`,
+    `- vendor/ に作ったら PUT ${c.serverUrl}/api/settings にそのパスを書く（例: ${JSON.stringify({ gemxPath: join(c.appRoot, 'vendor', 'GEM-X') })}）。`,
     `- 終わったら GET ${c.serverUrl}/api/env がすべて OK になるのを確かめ、入れた物と版を報告する。`,
   ]
   return lines.join('\n')

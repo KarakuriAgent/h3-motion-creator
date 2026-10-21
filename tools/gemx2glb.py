@@ -1,7 +1,7 @@
 # GEM-X（NVlabs/GEM-X）の推定の結果（hpe_results.pt の body_params_global。SOMA の 77 関節）を、骨組み + アニメーション 1 本の glb（bones.glb）にする。
 # tools/to_vrma/to_vrma.mjs がこの glb を .vrma にする。stats.json に品質の目安と、元の動画のカメラ（確認用の骨の動画に使う）を書く。
-# 使い方（ふつうは tools/gemx.sh が呼ぶ。GEM-X の venv の python で、GEM-X の根で動かす）:
-#   cd <GEM-X> && .venv/bin/python <アプリ>/tools/gemx2glb.py --in <hpe_results.pt> --out <bones.glb> [--facing start|mean|ends] [--floor track|fixed] [--stats <stats.json>] [--list]
+# 使い方（ふつうは tools/gemx.mjs が呼ぶ。GEM-X の venv の python で、GEM-X の根で動かす）:
+#   cd <GEM-X> && <GEM-X の python> <アプリ>/tools/gemx2glb.py --in <hpe_results.pt> --out <bones.glb> [--facing start|mean|ends] [--floor track|fixed] [--stats <stats.json>] [--list]
 #
 # 骨組みの作り方:
 #   - SOMA の回転（global_orient と body_pose。軸と角度）は「T ポーズからの回り」のローカルの回転で、
@@ -220,7 +220,7 @@ if not args.no_camera:
         print(f'[gemx2glb] 注意: 元の動画のカメラを求められません: {e}')
 if args.stats:
     os.makedirs(os.path.dirname(os.path.abspath(args.stats)), exist_ok=True)
-    with open(args.stats, 'w') as f:
+    with open(args.stats, 'w', encoding='utf-8', newline='\n') as f:
         json.dump(stats, f, ensure_ascii=False, indent=2)
 print(f'[gemx2glb] {args.inp} -> {args.out}（{L} フレーム、{args.fps:g} コマ/秒、向き {np.degrees(yaw):.1f}°、床 {floor.min():+.3f}〜{floor.max():+.3f} m）')
 print(f'[gemx2glb] 品質の目安: {json.dumps(stats, ensure_ascii=False)}')

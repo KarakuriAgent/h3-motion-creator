@@ -2,7 +2,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Settings } from './shared.js'
+import { expandHome, findPython, type LookupOptions } from './platform.js'
+import type { ResolvedTools, Settings } from './shared.js'
 
 /** アプリの根（このリポジトリ）。dist/server/server/ から動いても、server/ から動いても同じ所を指す */
 export function findAppRoot(): string {
@@ -14,7 +15,7 @@ export function findAppRoot(): string {
   return process.cwd()
 }
 
-export const DEFAULT_SETTINGS: Settings = { comfyuiPath: '', comfyuiUrl: 'http://127.0.0.1:8188', gemxPath: '' }
+export const DEFAULT_SETTINGS: Settings = { comfyuiPath: '', comfyuiUrl: 'http://127.0.0.1:8188', gemxPath: '', comfyuiPython: '', gemxPython: '' }
 
 export interface Paths {
   /** アプリの根 */
@@ -49,7 +50,14 @@ export function loadSettings(p: Paths): Settings {
 /** 前後の空白を取り、URL の末尾の / を落とす。URL が空なら既定 */
 export function normalizeSettings(s: Settings): Settings {
   const url = String(s.comfyuiUrl ?? '').trim().replace(/\/+$/, '')
-  return { comfyuiPath: String(s.comfyuiPath ?? '').trim(), comfyuiUrl: url || DEFAULT_SETTINGS.comfyuiUrl, gemxPath: String(s.gemxPath ?? '').trim() }
+  const str = (v: unknown) => String(v ?? '').trim()
+  return {
+    comfyuiPath: str(s.comfyuiPath),
+    comfyuiUrl: url || DEFAULT_SETTINGS.comfyuiUrl,
+    gemxPath: str(s.gemxPath),
+    comfyuiPython: str(s.comfyuiPython),
+    gemxPython: str(s.gemxPython),
+  }
 }
 
 export function saveSettings(p: Paths, s: Settings): Settings {
@@ -59,16 +67,30 @@ export function saveSettings(p: Paths, s: Settings): Settings {
   return n
 }
 
-/** 設定のパス（空なら vendor/ の物）。~ はホームに広げる */
-export function resolveTools(root: string, s: Settings) {
-  const expand = (v: string) => (v.startsWith('~/') ? join(process.env.HOME ?? '', v.slice(2)) : v)
-  const comfyuiPath = s.comfyuiPath ? resolve(expand(s.comfyuiPath)) : join(root, 'vendor/ComfyUI')
-  const gemxPath = s.gemxPath ? resolve(expand(s.gemxPath)) : join(root, 'vendor/GEM-X')
+/** 設定のパス（空なら vendor/ の物）。~ はホームに広げる。ファイルシステムは見ない */
+export function resolvePaths(root: string, s: Settings) {
+  const abs = (v: string) => resolve(expandHome(v))
   return {
-    comfyuiPath,
+    comfyuiPath: s.comfyuiPath ? abs(s.comfyuiPath) : join(root, 'vendor', 'ComfyUI'),
     comfyuiPathFromSettings: !!s.comfyuiPath,
-    gemxPath,
+    gemxPath: s.gemxPath ? abs(s.gemxPath) : join(root, 'vendor', 'GEM-X'),
     gemxPathFromSettings: !!s.gemxPath,
-    gemxPython: join(gemxPath, '.venv/bin/python'),
+    comfyuiPythonSetting: s.comfyuiPython ? abs(s.comfyuiPython) : null,
+    gemxPythonSetting: s.gemxPython ? abs(s.gemxPython) : null,
+  }
+}
+
+/** 設定のパスと python（python は設定にあればそれ、無ければフォルダの中を探す。見つからなければ null） */
+export function resolveTools(root: string, s: Settings, opts: LookupOptions = {}): ResolvedTools {
+  const p = resolvePaths(root, s)
+  return {
+    comfyuiPath: p.comfyuiPath,
+    comfyuiPathFromSettings: p.comfyuiPathFromSettings,
+    gemxPath: p.gemxPath,
+    gemxPathFromSettings: p.gemxPathFromSettings,
+    comfyuiPython: p.comfyuiPythonSetting ?? findPython(p.comfyuiPath, opts),
+    comfyuiPythonFromSettings: !!p.comfyuiPythonSetting,
+    gemxPython: p.gemxPythonSetting ?? findPython(p.gemxPath, opts),
+    gemxPythonFromSettings: !!p.gemxPythonSetting,
   }
 }

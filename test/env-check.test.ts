@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { judgeEnv, GEMX_WEIGHTS, type EnvFacts } from '../server/env-check'
 import { DEFAULT_SETTINGS, findAppRoot } from '../server/config'
@@ -10,16 +11,15 @@ const graph = loadWorkflow(root)
 /** 全部そろった環境の事実 */
 function goodFacts(): EnvFacts {
   return {
-    gpu: { name: 'Test GPU', memoryMiB: 16384, usedMiB: 1000 },
     ffmpeg: { ffmpeg: '/usr/bin/ffmpeg', ffprobe: '/usr/bin/ffprobe' },
-    comfy: { dirExists: true, hasMain: true, python: '/c/venv/bin/python' },
+    comfy: { dirExists: true, hasMain: true, python: '/c/venv/bin/python', pythonLooked: ['/c/venv/bin/python'] },
     sageattention: { ok: true },
     models: modelFiles(graph).map((need) => ({ need, path: `/c/models/${need.folder}/${need.name}`, inObjectInfo: true })),
     nodeSources: NODE_SOURCES.map((s) => ({ label: s.label, kind: s.kind, repo: s.repo, classTypes: s.classTypes, found: '/c/x' })),
     url: { reachable: true, version: '0.41.0' },
     objectInfo: { required: requiredClassTypes(graph), missing: [] },
     gemx: { dirExists: true, hasDemo: true },
-    gemxVenv: { python: '/g/.venv/bin/python', exists: true, ok: true, torch: '2.10.0', cuda: true, missingModules: [] },
+    gemxVenv: { python: '/g/.venv/bin/python', pythonLooked: ['/g/.venv/bin/python'], ok: true, torch: '2.10.0', missingModules: [] },
     gemxWeights: GEMX_WEIGHTS.map((rel) => ({ rel, exists: true })),
   }
 }
@@ -83,17 +83,17 @@ describe('環境チェックの判定', () => {
 
   it('パスが空なら vendor/ を見て、セットアップの依頼文に clone して作ると書く', () => {
     const f = goodFacts()
-    f.comfy = { dirExists: false, hasMain: false, python: null }
+    f.comfy = { dirExists: false, hasMain: false, python: null, pythonLooked: [] }
     f.sageattention = null
     f.models = f.models.map((m) => ({ ...m, path: null }))
     f.nodeSources = f.nodeSources.map((s) => ({ ...s, found: null }))
     f.gemx = { dirExists: false, hasDemo: false }
-    f.gemxVenv = { python: `${root}/vendor/GEM-X/.venv/bin/python`, exists: false, ok: false }
+    f.gemxVenv = { python: null, pythonLooked: [join(root, 'vendor', 'GEM-X', '.venv', 'bin', 'python')], ok: false }
     f.gemxWeights = f.gemxWeights.map((w) => ({ ...w, exists: false }))
     const ctx = { root, settings: { ...DEFAULT_SETTINGS } }
     const r = judgeEnv(f, ctx)
-    expect(r.resolved.comfyuiPath).toBe(`${root}/vendor/ComfyUI`)
-    expect(r.resolved.gemxPath).toBe(`${root}/vendor/GEM-X`)
+    expect(r.resolved.comfyuiPath).toBe(join(root, 'vendor', 'ComfyUI'))
+    expect(r.resolved.gemxPath).toBe(join(root, 'vendor', 'GEM-X'))
     // パスが無ければ、URL の ComfyUI にモデルがあっても OK にしない
     expect(r.items.find((i) => i.id === 'h3_models')?.state).toBe('missing')
     const text = setupRequestText(r, { serverUrl: 'http://127.0.0.1:4170', appRoot: root })!
@@ -103,14 +103,45 @@ describe('環境チェックの判定', () => {
     // URL の ComfyUI は動いているので、そのフォルダを使えないか人に確かめるよう書く
     expect(text).toContain('もう動いている')
     // 済んでいる物は触らない
-    expect(text).toMatch(/済んでいる物（触らない）: GPU（CUDA）・ffmpeg/)
+    expect(text).toMatch(/済んでいる物（触らない）: ffmpeg・/)
   })
 
-  it('GEM-X の venv で CUDA が使えなければ無い', () => {
+  it('GPU の項目は無い', () => {
+    expect(judgeEnv(goodFacts(), { root, settings }).items.map((i) => i.id)).not.toContain('gpu')
+  })
+
+  it('GEM-X の venv で読めないモジュールがあれば無い', () => {
     const f = goodFacts()
-    f.gemxVenv = { ...f.gemxVenv, ok: false, cuda: false, missingModules: [] }
+    f.gemxVenv = { ...f.gemxVenv, ok: false, missingModules: ['onnxruntime'] }
     const item = judgeEnv(f, { root, settings }).items.find((i) => i.id === 'gemx_venv')!
     expect(item.state).toBe('missing')
-    expect(item.detail).toContain('CUDA')
+    expect(item.detail).toContain('onnxruntime')
+  })
+
+  it('python が見つからなければ、見た所と、設定で直接指定できることを書く', () => {
+    const f = goodFacts()
+    f.comfy = { ...f.comfy, python: null, pythonLooked: ['/c/venv/bin/python', '/c/.venv/bin/python'] }
+    f.sageattention = null
+    f.gemxVenv = { python: null, pythonLooked: ['/g/.venv/bin/python'], ok: false }
+    const items = judgeEnv(f, { root, settings }).items
+    const sage = items.find((i) => i.id === 'sageattention')!
+    expect(sage.state).toBe('missing')
+    expect(sage.detail).toContain('/c/.venv/bin/python')
+    expect(sage.fix).toContain('ComfyUI の python')
+    const gx = items.find((i) => i.id === 'gemx_venv')!
+    expect(gx.detail).toContain('/g/.venv/bin/python')
+    expect(gx.fix).toContain('GEM-X の python')
+  })
+
+  it('ffmpeg の入れ方の例は OS に合わせる', () => {
+    const f = goodFacts()
+    f.ffmpeg = { ffmpeg: null, ffprobe: null }
+    const fix = (platform: NodeJS.Platform) => judgeEnv(f, { root, settings, platform }).items.find((i) => i.id === 'ffmpeg')!.fix!
+    expect(fix('linux')).toContain('apt')
+    expect(fix('linux')).toContain('人に頼む')
+    expect(fix('darwin')).toContain('brew')
+    expect(fix('darwin')).not.toContain('sudo')
+    expect(fix('win32')).toContain('winget')
+    expect(fix('win32')).not.toContain('sudo')
   })
 })

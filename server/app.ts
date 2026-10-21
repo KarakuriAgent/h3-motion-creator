@@ -3,9 +3,10 @@ import fastifyStatic from '@fastify/static'
 import Fastify from 'fastify'
 import { execFile } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
 import { ensureDirs, loadSettings, makePaths, resolveTools, saveSettings } from './config.js'
 import { checkEnv } from './env-check.js'
+import { commandPath } from './platform.js'
 import { isLoopback, listDirs } from './fs-browse.js'
 import { parseGlb, readVrmaInfo, readVrmMeta, summarizeQuality } from './gltf.js'
 import { ProofBaker, readyToBake } from './proofs.js'
@@ -52,7 +53,7 @@ export async function buildApp(opts: AppOptions) {
   })
 
   await app.register(fastifyStatic, { root: join(opts.root, 'render'), prefix: '/render/', decorateReply: true })
-  const web = join(opts.root, 'dist/web')
+  const web = join(opts.root, 'dist', 'web')
   if (existsSync(web)) await app.register(fastifyStatic, { root: web, prefix: '/', decorateReply: false, index: ['index.html'] })
 
   // 描画のページが読む three.js・three-vrm（node_modules の中の決まったパッケージだけ）
@@ -89,7 +90,7 @@ export async function buildApp(opts: AppOptions) {
   app.put('/api/settings', async (req) => {
     const b = (req.body ?? {}) as Partial<Settings>
     if (typeof b !== 'object' || Buffer.isBuffer(b)) throw new BadRequest('JSON で送る（Content-Type: application/json）')
-    settings = saveSettings(paths, { ...settings, ...pick(b, ['comfyuiPath', 'comfyuiUrl', 'gemxPath']) })
+    settings = saveSettings(paths, { ...settings, ...pick(b, ['comfyuiPath', 'comfyuiUrl', 'gemxPath', 'comfyuiPython', 'gemxPython']) })
     lastEnv = null
     return { ...settings, resolved: resolveTools(opts.root, settings) }
   })
@@ -223,9 +224,10 @@ export async function buildApp(opts: AppOptions) {
     })
     const name = `compare-${new Date().toISOString().replace(/[-:]/g, '').slice(0, 15)}-${ids.length}.mp4`
     const list = join(paths.compare, `${name}.txt`)
-    writeFileSync(list, files.map((f) => `file '${f.replace(/'/g, "'\\''")}'\n`).join(''))
+    // concat の一覧: 区切りは / にそろえる（ffmpeg はどの OS でも読める）。' は '\'' で書く
+    writeFileSync(list, files.map((f) => `file '${f.split(sep).join('/').replace(/'/g, "'\\''")}'\n`).join(''))
     await new Promise<void>((ok, ng) =>
-      execFile('ffmpeg', ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', join(paths.compare, name)], (err, _o, se) => (err ? ng(new Error(`ffmpeg: ${se || err.message}`)) : ok())),
+      execFile(commandPath('ffmpeg'), ['-v', 'error', '-y', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', join(paths.compare, name)], (err, _o, se) => (err ? ng(new Error(`ffmpeg: ${se || err.message}`)) : ok())),
     )
     return { name, url: `/api/compare/${name}` }
   })
@@ -257,20 +259,20 @@ export async function buildApp(opts: AppOptions) {
         height: m.threeview.height,
         layout: '正面・右側（本人の右）・後ろを横に並べた 1 枚。A ポーズ・正射影・背景 #f2f2f2。参照画像 <Picture 1> として渡す',
       },
-      comfyui: { url: settings.comfyuiUrl, path: t.comfyuiPath },
+      comfyui: { url: settings.comfyuiUrl, path: t.comfyuiPath, python: t.comfyuiPython },
       gemx: { path: t.gemxPath, python: t.gemxPython },
       app: {
         root: opts.root,
         serverUrl,
         workflow: join(opts.root, WORKFLOW_FILE),
-        docs: { agentGuide: join(opts.root, 'docs/agent-guide.md'), h3Prompt: join(opts.root, 'docs/h3-prompt.md') },
+        docs: { agentGuide: join(opts.root, 'docs', 'agent-guide.md'), h3Prompt: join(opts.root, 'docs', 'h3-prompt.md') },
         tools: {
-          h3R2v: join(opts.root, 'tools/h3_r2v.mjs'),
-          freeVram: join(opts.root, 'tools/free_vram.sh'),
-          gemx: join(opts.root, 'tools/gemx.sh'),
-          gemxInfer: join(opts.root, 'tools/gemx_infer.py'),
-          gemx2glb: join(opts.root, 'tools/gemx2glb.py'),
-          toVrma: join(opts.root, 'tools/to_vrma/to_vrma.mjs'),
+          h3R2v: join(opts.root, 'tools', 'h3_r2v.mjs'),
+          freeVram: join(opts.root, 'tools', 'free_vram.mjs'),
+          gemx: join(opts.root, 'tools', 'gemx.mjs'),
+          gemxInfer: join(opts.root, 'tools', 'gemx_infer.py'),
+          gemx2glb: join(opts.root, 'tools', 'gemx2glb.py'),
+          toVrma: join(opts.root, 'tools', 'to_vrma', 'to_vrma.mjs'),
         },
         workDir: join(store.jobDir(job.id), 'work'),
       },

@@ -12,7 +12,7 @@ export const MAX_DIRS = 2000
 export function folderHints(dir: string): FolderHint[] {
   const out: FolderHint[] = []
   if (existsSync(join(dir, 'main.py')) && isDir(join(dir, 'custom_nodes'))) out.push('comfyui')
-  if (existsSync(join(dir, '.venv')) && isDir(join(dir, 'scripts/demo'))) out.push('gemx')
+  if (existsSync(join(dir, '.venv')) && isDir(join(dir, 'scripts', 'demo'))) out.push('gemx')
   return out
 }
 

@@ -4,8 +4,8 @@
 #   - 既定はカメラ固定（--static_cam。H3 の動画はカメラ固定で作る。GEM-X の demo も VO が無いときは固定のカメラとして扱う）
 #   - メッシュを重ねた動画は --render のときだけ（遅い）。2D の関節を重ねた動画（0_kp2d77_overlay.mp4）は既定で作る（確かめ用）
 #   - 段ごとに GPU のメモリを空ける（ComfyUI と同じ GPU を分けて使うため）
-# 使い方（ふつうは tools/gemx.sh が呼ぶ。GEM-X の venv の python で、GEM-X の根で動かす）:
-#   cd <GEM-X> && .venv/bin/python <アプリ>/tools/gemx_infer.py --video <mp4> --output_root <出力の根> [--moving_cam] [--render] [--no_kp2d]
+# 使い方（ふつうは tools/gemx.mjs が呼ぶ。GEM-X の venv の python で、GEM-X の根で動かす）:
+#   cd <GEM-X> && <GEM-X の python> <アプリ>/tools/gemx_infer.py --video <mp4> --output_root <出力の根> [--moving_cam] [--render] [--no_kp2d]
 #   出力: <出力の根>/<動画の名前>/hpe_results.pt（と preprocess/ の中間ファイル、0_kp2d77_overlay.mp4、30 コマ/秒にそろえた <動画の名前>.mp4）
 #   中間ファイルがあれば、その段は飛ばす（作り直すときは <出力の根>/<動画の名前>/ を消す）
 import argparse
@@ -16,8 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')
-os.environ.setdefault('EGL_PLATFORM', 'surfaceless')
+if sys.platform.startswith('linux'):  # 画面の無い所でメッシュを描く（--render）ための EGL。ほかの OS は既定の OpenGL のまま
+    os.environ.setdefault('PYOPENGL_PLATFORM', 'egl')
+    os.environ.setdefault('EGL_PLATFORM', 'surfaceless')
 
 GEM_ROOT = Path(os.environ.get('GEMX_ROOT', Path.cwd())).resolve()
 if not (GEM_ROOT / 'scripts/demo/demo_soma.py').exists():

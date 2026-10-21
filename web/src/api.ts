@@ -1,5 +1,5 @@
 // サーバの API を呼ぶ小さな包み
-import type { DirListing, EnvReport, Job, ModelInfo, Settings } from '../../server/shared'
+import type { DirListing, EnvReport, Job, ModelInfo, ResolvedTools, Settings } from '../../server/shared'
 
 async function call<T>(method: string, url: string, body?: unknown, raw?: Blob): Promise<T> {
   const res = await fetch(url, {
@@ -12,7 +12,7 @@ async function call<T>(method: string, url: string, body?: unknown, raw?: Blob):
   return j as T
 }
 
-export type SettingsView = Settings & { resolved: { comfyuiPath: string; gemxPath: string; comfyuiPathFromSettings: boolean; gemxPathFromSettings: boolean } }
+export type SettingsView = Settings & { resolved: ResolvedTools }
 
 export const api = {
   env: (cached = false) => call<EnvReport>('GET', `/api/env${cached ? '?cached=1' : ''}`),

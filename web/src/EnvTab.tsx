@@ -4,12 +4,14 @@ import { api, copyText, type SettingsView } from './api'
 import { CopyBox } from './CopyBox'
 import { FolderPicker } from './FolderPicker'
 
+const formOf = (s: Settings): Settings => ({ comfyuiPath: s.comfyuiPath, comfyuiUrl: s.comfyuiUrl, gemxPath: s.gemxPath, comfyuiPython: s.comfyuiPython, gemxPython: s.gemxPython })
+
 const MARK = { ok: '✓', missing: '✕' } as const
 const WORD = { ok: 'OK', missing: '無い' } as const
 
 export function EnvTab() {
   const [settings, setSettings] = useState<SettingsView | null>(null)
-  const [form, setForm] = useState<Settings>({ comfyuiPath: '', comfyuiUrl: '', gemxPath: '' })
+  const [form, setForm] = useState<Settings>({ comfyuiPath: '', comfyuiUrl: '', gemxPath: '', comfyuiPython: '', gemxPython: '' })
   const [env, setEnv] = useState<EnvReport | null>(null)
   const [setup, setSetup] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -33,7 +35,7 @@ export function EnvTab() {
   useEffect(() => {
     api.settings().then((s) => {
       setSettings(s)
-      setForm({ comfyuiPath: s.comfyuiPath, comfyuiUrl: s.comfyuiUrl, gemxPath: s.gemxPath })
+      setForm(formOf(s))
     })
     api
       .env(true)
@@ -49,7 +51,7 @@ export function EnvTab() {
     try {
       const s = await api.saveSettings(next)
       setSettings(s)
-      setForm({ comfyuiPath: s.comfyuiPath, comfyuiUrl: s.comfyuiUrl, gemxPath: s.gemxPath })
+      setForm(formOf(s))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -84,6 +86,17 @@ export function EnvTab() {
             </button>
           </span>
           {settings && <small className="muted">見る所: {settings.resolved.gemxPath}</small>}
+        </label>
+        <p className="muted small">python は空なら、それぞれのフォルダの中を探します（venv・.venv・python_embeded）。別の所の python（conda など）を使うときだけ、そのファイルのパスを書きます。</p>
+        <label className="field">
+          <span>ComfyUI の python（任意）</span>
+          <input value={form.comfyuiPython} placeholder="空 → 自動" onChange={(e) => setForm({ ...form, comfyuiPython: e.target.value })} />
+          {settings && <small className="muted">使う物: {settings.resolved.comfyuiPython ?? '見つからない'}</small>}
+        </label>
+        <label className="field">
+          <span>GEM-X の python（任意）</span>
+          <input value={form.gemxPython} placeholder="空 → 自動" onChange={(e) => setForm({ ...form, gemxPython: e.target.value })} />
+          {settings && <small className="muted">使う物: {settings.resolved.gemxPython ?? '見つからない'}</small>}
         </label>
         <div className="row">
           <button className="primary" disabled={busy} onClick={() => save()}>

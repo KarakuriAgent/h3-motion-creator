@@ -6,6 +6,7 @@
 # どの依頼の compare.mp4 も同じ大きさ・同じ符号化なので、ffmpeg の concat（-c copy）でつなげる（POST /api/compare）
 import argparse
 import json
+import os
 import subprocess
 import sys
 
@@ -17,12 +18,28 @@ BG = (18, 19, 22)
 PANEL_BG = (8, 8, 10)
 
 
+# fc-match が無い・見つからないときに見る、日本語の字がある書体（Windows・macOS の標準の書体）
+FONT_FILES = {
+    False: ['C:/Windows/Fonts/YuGothM.ttc', 'C:/Windows/Fonts/meiryo.ttc', 'C:/Windows/Fonts/msgothic.ttc',
+            '/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc', '/System/Library/Fonts/Hiragino Sans GB.ttc', '/Library/Fonts/Arial Unicode.ttf'],
+    True: ['C:/Windows/Fonts/YuGothB.ttc', 'C:/Windows/Fonts/meiryob.ttc',
+           '/System/Library/Fonts/ヒラギノ角ゴシック W6.ttc'],
+}
+
+
 def find_font(bold=False):
     for q in (['Noto Sans CJK JP:bold'] if bold else []) + ['Noto Sans CJK JP', 'IPAGothic', 'TakaoGothic', 'sans-serif:lang=ja']:
-        r = subprocess.run(['fc-match', '-f', '%{file}', q], capture_output=True, text=True)
+        try:
+            r = subprocess.run(['fc-match', '-f', '%{file}', q], capture_output=True, text=True)
+        except OSError:  # fc-match が無い
+            break
         if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip()
-    return None
+    windir = os.environ.get('WINDIR')
+    files = FONT_FILES[bold] + FONT_FILES[not bold]
+    if windir:
+        files = [f.replace('C:/Windows', windir.replace('\\', '/')) for f in files]
+    return next((f for f in files if os.path.exists(f)), None)
 
 
 FONT_R, FONT_B = find_font(), find_font(True)

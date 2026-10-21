@@ -1,6 +1,6 @@
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { buildApp } from '../server/app'
 import { findAppRoot } from '../server/config'
@@ -83,8 +83,8 @@ describe('依頼の作成', () => {
     const j = (await ctx.app.inject({ method: 'GET', url: '/api/jobs/wave-001' })).json()
     expect(j.width).toBe(480)
     expect(j.height).toBe(864)
-    expect(j.threeview.path).toContain(`models/${modelId}/threeview.png`)
-    expect(j.app.workflow).toContain('workflows/minimax_h3_r2v_turbo.json')
+    expect(j.threeview.path).toContain(join('models', modelId, 'threeview.png'))
+    expect(j.app.workflow).toBe(join(root, 'workflows', 'minimax_h3_r2v_turbo.json'))
     expect(j.api.files['motion.vrma']).toContain('/api/jobs/wave-001/files/motion.vrma')
     expect(j.comfyui.url).toBe('http://127.0.0.1:8188')
   })
@@ -141,5 +141,25 @@ describe('進み具合と結果の受け取り', () => {
   it('一覧に出る', async () => {
     const list = (await ctx.app.inject({ method: 'GET', url: '/api/jobs' })).json()
     expect(list.map((j: { id: string }) => j.id).sort()).toEqual(['wave-001', 'wave-002'])
+  })
+})
+
+describe('設定', () => {
+  it('python のパスを書ける（空なら自動で探す）。前後の空白は落とす', async () => {
+    const put = await ctx.app.inject({ method: 'PUT', url: '/api/settings', payload: { gemxPython: '  /opt/py/bin/python  ', comfyuiPython: '' } })
+    expect(put.statusCode).toBe(200)
+    const s = put.json()
+    expect(s.gemxPython).toBe('/opt/py/bin/python')
+    expect(s.resolved.gemxPython).toBe(join(resolve('/opt/py/bin'), 'python'))
+    expect(s.resolved.gemxPythonFromSettings).toBe(true)
+    expect(s.comfyuiPython).toBe('')
+    expect(s.resolved.comfyuiPythonFromSettings).toBe(false)
+    const saved = JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8'))
+    expect(saved.gemxPython).toBe('/opt/py/bin/python')
+    // 依頼の中身の gemx.python にも出る
+    const job = (await ctx.app.inject({ method: 'GET', url: '/api/jobs/wave-001' })).json()
+    expect(job.gemx.python).toBe(s.resolved.gemxPython)
+    expect(job.app.tools.gemx).toBe(join(root, 'tools', 'gemx.mjs'))
+    expect(job.app.tools.freeVram).toBe(join(root, 'tools', 'free_vram.mjs'))
   })
 })

@@ -24,9 +24,15 @@ beforeAll(async () => {
   writeFileSync(join(base, 'a-comfy/main.py'), '')
   mkdirSync(join(base, 'c-gemx/scripts/demo'), { recursive: true })
   mkdirSync(join(base, 'c-gemx/.venv'))
-  symlinkSync(join(base, 'b-plain'), join(base, 'd-link'))
-  symlinkSync(join(base, 'file.txt'), join(base, 'e-filelink'))
-  symlinkSync(join(base, 'nowhere'), join(base, 'f-broken'))
+  symlinkSync(join(base, 'b-plain'), join(base, 'd-link'), 'junction') // junction は Windows だけで効く（権限が要らない）
+  // ファイルへのリンク・切れたリンク（Windows では権限が要るので、作れなければ飛ばす。どちらも一覧には出ない物）
+  for (const [to, at] of [['file.txt', 'e-filelink'], ['nowhere', 'f-broken']]) {
+    try {
+      symlinkSync(join(base, to), join(base, at))
+    } catch {
+      /* 作れない */
+    }
+  }
   mkdirSync(join(base, 'locked'))
   ctx = await buildApp({ root, dataDir: data, render: false })
 })
@@ -85,8 +91,8 @@ describe('GET /api/fs/dirs', () => {
     expect(rel.statusCode).toBe(400)
     expect(rel.json().error).toContain('絶対パス')
     chmodSync(join(base, 'locked'), 0o000)
-    // root で動かしていると権限があっても読めるので確かめない
-    if (process.getuid?.() !== 0) {
+    // root で動かしていると権限があっても読めるので確かめない。Windows は chmod で読めなくならない
+    if (process.platform !== 'win32' && process.getuid?.() !== 0) {
       const locked = await get(join(base, 'locked'))
       expect(locked.statusCode).toBe(400)
       expect(locked.json().error).toContain('読めません')

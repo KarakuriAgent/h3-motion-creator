@@ -14,7 +14,6 @@ export interface CheckItem {
 }
 
 export type CheckId =
-  | 'gpu'
   | 'ffmpeg'
   | 'comfyui_path'
   | 'comfyui_running'
@@ -34,13 +33,30 @@ export interface Settings {
   comfyuiUrl: string
   /** GEM-X のフォルダ。空なら <アプリ>/vendor/GEM-X */
   gemxPath: string
+  /** ComfyUI を動かす python。空なら ComfyUI のフォルダの中を探す（venv・.venv・python_embeded） */
+  comfyuiPython: string
+  /** GEM-X の venv の python。空なら GEM-X のフォルダの中を探す（.venv・venv） */
+  gemxPython: string
+}
+
+/** 実際に見るパス（設定が空のときは vendor/ の物・探して見つかった python） */
+export interface ResolvedTools {
+  comfyuiPath: string
+  comfyuiPathFromSettings: boolean
+  gemxPath: string
+  gemxPathFromSettings: boolean
+  /** 見つからなければ null */
+  comfyuiPython: string | null
+  comfyuiPythonFromSettings: boolean
+  gemxPython: string | null
+  gemxPythonFromSettings: boolean
 }
 
 export interface EnvReport {
   checkedAt: string
   settings: Settings
   /** 実際に見たパス（空のときは vendor/ の物） */
-  resolved: { comfyuiPath: string; comfyuiPathFromSettings: boolean; gemxPath: string; gemxPathFromSettings: boolean }
+  resolved: ResolvedTools
   items: CheckItem[]
   /** 全部 OK か */
   ready: boolean

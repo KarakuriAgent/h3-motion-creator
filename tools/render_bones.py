@@ -28,7 +28,7 @@ names, parents, offsets, hips, quats, _ = load_glb(args.glb)
 P = fk(parents, offsets, hips, quats)
 cam = None
 if args.stats and Path(args.stats).exists():
-    cam = json.loads(Path(args.stats).read_text()).get('camera')
+    cam = json.loads(Path(args.stats).read_text(encoding='utf-8')).get('camera')
 w, h = args.width, args.height
 if not (w and h):
     if cam:
