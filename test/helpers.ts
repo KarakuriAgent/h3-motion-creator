@@ -52,9 +52,10 @@ export function fakeVrm(meta: Record<string, unknown> = {}): Buffer {
 
 /**
  * SOMA の名前の小さな骨組み（T ポーズ・回転なし）とアニメーション。腰が前へ進み、左腕が上下する。
- * gemx2glb.py が書く bones.glb と同じ形（ノード 0 = Hips、腰の translation と全部の rotation のチャンネル）
+ * gemx2glb.py が書く bones.glb と同じ形（ノード 0 = Hips、腰の translation と全部の rotation のチャンネル）。
+ * headPitchDeg・headYawDeg: 頭をずっとその角度（前へ傾ける・横へ回す）にしておく
  */
-export function fakeSomaGlb(frames = 30, fps = 30): Buffer {
+export function fakeSomaGlb(frames = 30, fps = 30, { headPitchDeg = 0, headYawDeg = 0 } = {}): Buffer {
   const nodes: { name: string; t: number[]; parent: number }[] = []
   const add = (name: string, t: number[], parent: number) => (nodes.push({ name, t, parent }), nodes.length - 1)
   const hips = add('Hips', [0, 0.95, 0], -1)
@@ -81,9 +82,14 @@ export function fakeSomaGlb(frames = 30, fps = 30): Buffer {
   const hipsT = times.flatMap((t) => [0, 0.95, t * 0.5])
   const arrays: { data: number[]; type: 'SCALAR' | 'VEC3' | 'VEC4'; minmax?: boolean }[] = [{ data: times, type: 'SCALAR', minmax: true }, { data: hipsT, type: 'VEC3' }]
   const leftArm = nodes.findIndex((n) => n.name === 'LeftArm')
+  const head = nodes.findIndex((n) => n.name === 'Head')
+  // 頭の回り: Y まわり（横）× X まわり（前）
+  const [px, py] = [((headPitchDeg * Math.PI) / 180) / 2, ((headYawDeg * Math.PI) / 180) / 2]
+  const headQ = [Math.cos(py) * Math.sin(px), Math.sin(py) * Math.cos(px), -Math.sin(py) * Math.sin(px), Math.cos(py) * Math.cos(px)]
   for (let j = 0; j < nodes.length; j++) {
     arrays.push({
       data: times.flatMap((t) => {
+        if (j === head) return headQ
         if (j !== leftArm) return [0, 0, 0, 1]
         const a = Math.sin(t * Math.PI * 2) * 0.5
         return [0, 0, Math.sin(a / 2), Math.cos(a / 2)]

@@ -151,6 +151,11 @@ node tools/to_vrma/to_vrma.mjs --glb $W/gemx/bones.glb --out $W/motion.vrma [オ
 | 震えをならす | `--smooth 0.08`（既定 0.05） |
 | 上半身だけ使う | `--lower-body neutral` |
 | 左右を入れ替える | `--mirror` |
+| 立ち姿勢のうつむき・横向きを消す | `--ref-subtract neck,head`（始めの `--ref-window` 秒（既定 0.3）の平均の前後の傾きと横の回りを、その骨から差し引く。かしげる向きは残る）。`--ref-keep 5` で下向きを 5° 残す（骨の合計）。ループは 1 周期を窓にする（`--ref-window 1.2` など） |
+| 待機と足の場所をそろえる | `--shift-hips-z -0.08`（腰の前後の位置を m でずらす。+ が前。足も一緒に動く）。`--drift-hips-z 0.1`: 始め 0 → 終わり 0.1 m と、時間に比べて引く（前へ寄っていく分） |
+| 推定の床がずれて浮いた所を戻す | `--shift-hips-y -0.14`（腰の高さを m でずらす。+ が上） |
+| 跳んでいる間の姿勢など、1 コマを止めたループ | `--freeze 3.03 --freeze-length 1.5`（元の動画の秒。腰の水平の位置は原点）。腰の高さは `--hips-y stand`（切り出した所の始めの `--ref-window` 秒の平均。立った高さ）か数（m） |
+| 歩きの足が滑らない速さを書く | `--walk-speed 1.12`（m/s。`auto` = 床に着いた足が後ろへ動く速さの中央値を測る）。脚の長さ（太もも + すね）は骨格から出す（`--leg-length` で上書き）。`extras.walkSpeed`・`legLength`（sakurami-cho の `tools/anim/convert.mjs` と同じ形）に入る |
 
 終わりに `[to_vrma] {"startEndDeg": …, "startEndHipsCm": …}` が出る。1 回の身ぶりで始めと終わりの差が大きい（30° 以上）ときは、
 始めか終わりで立っていない。`--from`・`--to` を見直すか、H3 を焼き直す。`--from`・`--loop` を使うと、.vrma に元の動画のどこから始まるかが入り、

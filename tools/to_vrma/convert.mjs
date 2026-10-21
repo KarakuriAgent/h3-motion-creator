@@ -11,7 +11,7 @@
 //   ループは腰の水平の位置の平均を原点に置く
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { Quaternion, Vector3 } from 'three'
+import { Euler, Quaternion, Vector3 } from 'three'
 import { SOMA_BONES } from './soma-bones.mjs'
 
 // --- 1. glb を読む ---
@@ -332,6 +332,57 @@ export function keepInPlace(hips, feet, times, sigma = 0.6) {
   })
 }
 
+/**
+ * 立ち姿勢の向きを差し引く（refSubtract）: 骨ごとに、始めの window 秒の平均のローカルの回転を YXZ のオイラー角に分け、
+ * 前後の傾き（X まわり）と横の回り（Y まわり）を、全部のフレームの回転から差し引く（親の側から掛ける。かしげる向き（Z まわり）は残す）。
+ * keepDeg: 差し引いたあとに残す下向きの角度（骨の合計。度。骨の数で等分する）。返す物は骨ごとに差し引いた角度（度。表示用）
+ */
+export function subtractReference(rotations, times, bones, window = 0.3, keepDeg = 0) {
+  const n = times.filter((t) => t <= times[0] + window + 1e-6).length
+  const keep = (keepDeg * Math.PI) / 180 / bones.length
+  const out = {}
+  for (const b of bones) {
+    const list = rotations[b]
+    if (!list) throw new Error(`差し引く骨がありません: ${b}`)
+    const s = [0, 0, 0, 0]
+    for (let i = 0; i < n; i++) {
+      const q = list[i]
+      const sign = q.dot(list[0]) < 0 ? -1 : 1
+      s[0] += q.x * sign
+      s[1] += q.y * sign
+      s[2] += q.z * sign
+      s[3] += q.w * sign
+    }
+    const e = new Euler().setFromQuaternion(new Quaternion(...s).normalize(), 'YXZ')
+    const c = new Quaternion().setFromEuler(new Euler(e.x - keep, e.y, 0, 'YXZ')).invert()
+    list.forEach((q) => q.premultiply(c))
+    out[b] = { pitch: round(((e.x - keep) * 180) / Math.PI), yaw: round((e.y * 180) / Math.PI) }
+  }
+  return out
+}
+
+/**
+ * 歩きの足が滑らない速さ（m/s。この素材の骨格で）: 床に着いている足（足首の高さが、その足のいちばん低い所 + 1.5 cm 以内）が後ろへ動く速さの中央値。
+ * 進む分を消した（inPlace）あとの足の位置で測る。sakurami-cho の tools/anim/convert.mjs と同じ測り方
+ */
+export function measureWalkSpeed(feet, times) {
+  const speeds = []
+  for (const side of ['L', 'R']) {
+    const ys = feet.map((f) => f[side].y)
+    const floor = Math.min(...ys)
+    for (let i = 1; i < feet.length; i++) {
+      if (ys[i] > floor + 0.015 || ys[i - 1] > floor + 0.015) continue
+      speeds.push(-(feet[i][side].z - feet[i - 1][side].z) / (times[i] - times[i - 1]))
+    }
+  }
+  if (!speeds.length) throw new Error('床に着いている足が見つからず、歩く速さを測れません（--walk-speed に数で渡す）')
+  speeds.sort((a, b) => a - b)
+  return speeds[Math.floor(speeds.length / 2)]
+}
+
+/** 脚の長さ（太もも + すね、m。T ポーズの骨格で）。sakurami-cho の tools/anim/convert.mjs の legLength と同じ */
+export const legLengthOf = (tpose) => tpose.pos.leftLowerLeg.distanceTo(tpose.pos.leftUpperLeg) + tpose.pos.leftFoot.distanceTo(tpose.pos.leftLowerLeg)
+
 /** 腰から下の骨（lowerBody: 'neutral' で、まっすぐ立った姿勢にする骨） */
 const LOWER_BONES = ['hips', 'leftUpperLeg', 'rightUpperLeg', 'leftLowerLeg', 'rightLowerLeg', 'leftFoot', 'rightFoot', 'leftToes', 'rightToes']
 
@@ -373,6 +424,15 @@ function makeLoop(track, rig, dt, blend) {
  * - loop: true = 繰り返すループにする（blend = つなぎ目を重ねる秒。既定 0.5）
  * - inPlace: true = 腰の水平の動き（進む分）を消してその場にする
  * - lowerBody: 'neutral' = 腰から下をまっすぐ立った姿勢にする / mirror: true = 左右を入れ替える
+ * - refSubtract: 骨の名前の並び（例 ['neck', 'head']）。始めの refWindow 秒（既定 0.3）の平均の前後の傾きと横の回りを、その骨の回転から差し引く
+ *   （H3 の立ち姿勢のうつむきを消す）。refKeep = 差し引いたあとに残す下向きの角度（骨の合計。度。既定 0）
+ * - shiftHipsZ: 腰の前後の位置を、全部のフレームでこれだけずらす（m。+ が前。足も一緒に動く。待機と足の場所をそろえる）
+ * - shiftHipsY: 腰の高さを、全部のフレームでこれだけずらす（m。+ が上。推定の床がずれて浮いた・沈んだ所を床に戻す）
+ * - driftHipsZ: 腰の前後の位置を、始め 0 から終わりのこの値まで、時間に比べてずらす（m。前へ寄っていく分を引く）
+ * - hipsY: 腰の高さを、全部のフレームでこの値にする（m。'stand' = 切り出した所の始めの refWindow 秒の平均の高さ）
+ * - freeze: 元の動画のこの秒の 1 コマを止めた、freezeLength 秒（既定 1.5）のループにする（腰の水平の位置は原点。跳んでいる間の姿勢など）
+ * - walkSpeed: 歩きの足が滑らない速さ（m/s。'auto' = 床に着いた足の動きから測る）。legLength（既定は T ポーズの骨格の太もも + すね）と一緒に
+ *   アニメーションの extras.walkSpeed・extras.legLength に書く（sakurami-cho の vrmAnimation.ts が読む形）
  */
 export function convertGlb(buf, opts = {}) {
   const s = sampleGlb(buf, { from: opts.from ?? 0, to: opts.to ?? Infinity })
@@ -387,11 +447,31 @@ export function convertGlb(buf, opts = {}) {
   const tpose = tPoseOf(reference, s.rig)
   const { rotations, hips, feet } = toNormalized(frames, tpose, s.rig)
   smoothTrack(rotations, hips, s.times, opts.smooth ?? 0.05)
+  const window = opts.refWindow ?? 0.3
+  const refSubtracted = opts.refSubtract?.length ? subtractReference(rotations, s.times, opts.refSubtract, window, opts.refKeep ?? 0) : null
+  // 立った腰の高さ（hipsY: 'stand'）: 切り出した所の始めの window 秒の平均
+  const standing = hips.filter((_, i) => s.times[i] <= window + 1e-6)
+  const standY = standing.reduce((a, p) => a + p.y, 0) / standing.length
   if (opts.inPlace) keepInPlace(hips, feet, s.times)
+  const walkSpeed = opts.walkSpeed === 'auto' ? measureWalkSpeed(feet, s.times) : opts.walkSpeed
   const dt = s.times[1] - s.times[0]
   let anim
   let sourceStartSec = s.sourceStartSec
-  if (opts.loop) {
+  let sourceEndSec = s.sourceEndSec
+  if (opts.freeze !== undefined) {
+    // 1 コマを止めたループ: 元の動画の freeze 秒にいちばん近いフレームを、freezeLength 秒並べる
+    const at = opts.freeze - s.sourceStartSec
+    const f = s.times.reduce((best, t, i) => (Math.abs(t - at) < Math.abs(s.times[best] - at) ? i : best), 0)
+    if (Math.abs(s.times[f] - at) > dt) throw new Error(`止める所（${opts.freeze} 秒）が切り出した所（${s.sourceStartSec}〜${s.sourceEndSec} 秒）の外です`)
+    const count = Math.max(2, Math.round((opts.freezeLength ?? 1.5) / dt) + 1)
+    const times = Array.from({ length: count }, (_, i) => i * dt)
+    anim = {
+      times,
+      rotations: Object.fromEntries(s.rig.bones.map((b) => [b, times.map(() => rotations[b][f].clone())])),
+      hips: times.map(() => new Vector3(0, hips[f].y, 0)),
+    }
+    sourceStartSec = sourceEndSec = s.sourceStartSec + s.times[f]
+  } else if (opts.loop) {
     // 立つ場所: 両足の真ん中の平均を原点に（ループは腰の平均を原点にそろえ直す）
     const center = new Vector3()
     feet.forEach((f) => center.add(f.L).add(f.R))
@@ -412,16 +492,37 @@ export function convertGlb(buf, opts = {}) {
     for (const b of LOWER_BONES) anim.rotations[b]?.forEach((q) => q.identity())
     anim.hips.forEach((p) => p.set(0, tpose.pos.hips.y, 0))
   }
+  // 腰の置き場の直し（上の置き場を決めたあとに足す）
+  const last = anim.times[anim.times.length - 1]
+  anim.hips.forEach((p, i) => {
+    if (opts.shiftHipsZ) p.z += opts.shiftHipsZ
+    if (opts.shiftHipsY) p.y += opts.shiftHipsY
+    if (opts.driftHipsZ && last > 0) p.z -= (opts.driftHipsZ * anim.times[i]) / last
+    if (opts.hipsY !== undefined) p.y = opts.hipsY === 'stand' ? standY : opts.hipsY
+  })
+  if (walkSpeed) {
+    anim.walkSpeed = walkSpeed
+    anim.legLength = opts.legLength ?? legLengthOf(tpose)
+  }
   const info = {
     sourceStartSec: round(sourceStartSec),
-    sourceEndSec: round(s.sourceEndSec),
-    loop: !!opts.loop,
+    sourceEndSec: round(sourceEndSec),
+    loop: !!opts.loop || opts.freeze !== undefined,
     inPlace: !!opts.inPlace,
     smooth: opts.smooth ?? 0.05,
     mirror: !!opts.mirror,
     lowerBody: opts.lowerBody ?? 'motion',
+    // 足したオプション（使ったときだけ書く）
+    ...(refSubtracted ? { refSubtract: refSubtracted, refWindow: window } : {}),
+    ...(opts.shiftHipsZ ? { shiftHipsZ: opts.shiftHipsZ } : {}),
+    ...(opts.shiftHipsY ? { shiftHipsY: opts.shiftHipsY } : {}),
+    ...(opts.driftHipsZ ? { driftHipsZ: opts.driftHipsZ } : {}),
+    ...(opts.hipsY !== undefined ? { hipsY: round(opts.hipsY === 'stand' ? standY : opts.hipsY) } : {}),
+    ...(opts.freeze !== undefined ? { freeze: round(sourceStartSec), freezeLength: round(last) } : {}),
   }
-  return { name: opts.name ?? s.name, rig: s.rig, tpose, anim, info, report: report(anim, s.rig, tpose) }
+  const rep = report(anim, s.rig, tpose)
+  if (walkSpeed) Object.assign(rep, { walkSpeed: round(anim.walkSpeed), legLength: round(anim.legLength) })
+  return { name: opts.name ?? s.name, rig: s.rig, tpose, anim, info, report: rep }
 }
 
 const round = (x) => Math.round(x * 10000) / 10000
@@ -449,7 +550,7 @@ function report(anim, rig, tpose) {
  * 骨の回転と腰の位置の列を .vrma に書き出す。
  * - rig: { bones: VRM の骨の名前の並び（親が先）, parent: 骨 → 親の骨の名前（hips は null） }
  * - tpose: { pos: 骨 → T ポーズでのワールドの位置（骨組みはこの位置に回転なしで置く。腰の高さが再生するモデルとの大きさの比の基準） }
- * - anim: { times: 秒の並び, rotations: 骨 → 時刻ごとの正規化した骨のローカルの回転, hips: 時刻ごとの腰の位置 }
+ * - anim: { times: 秒の並び, rotations: 骨 → 時刻ごとの正規化した骨のローカルの回転, hips: 時刻ごとの腰の位置, walkSpeed・legLength: 歩きなら（無ければ書かない） }
  * - info: アニメーションの extras.h3MotionCreator に書く（元の動画のどこからか・ループ・その場など。確認の画面が時刻を合わせるのに使う）
  */
 export function writeVrma(path, { name, rig, tpose, anim, info }, generator = 'h3-motion-creator to_vrma') {
@@ -493,7 +594,8 @@ export function writeVrma(path, { name, rig, tpose, anim, info }, generator = 'h
     scene: 0,
     scenes: [{ nodes: [index.hips] }],
     nodes,
-    animations: [{ name, channels, samplers, ...(info ? { extras: { h3MotionCreator: info } } : {}) }],
+    // extras.walkSpeed・legLength: 1 倍の速さで再生したときに足が滑らない進む速さ（m/s）と脚の長さ（太もも + すね、m）。sakurami-cho の vrmAnimation.ts が読む
+    animations: [{ name, channels, samplers, ...(info || anim.walkSpeed ? { extras: { ...(anim.walkSpeed ? { walkSpeed: round(anim.walkSpeed), legLength: round(anim.legLength) } : {}), ...(info ? { h3MotionCreator: info } : {}) } } : {}) }],
     accessors,
     bufferViews,
     buffers: [{ byteLength }],

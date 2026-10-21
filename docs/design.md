@@ -456,6 +456,14 @@ GEM-X の `scripts/demo/demo_soma.py` の関数を同じ順に呼ぶ（GEM-X の
 | `--loop [--blend <秒>]` | 切れ目なく繰り返すループ: 始めと終わりの `blend` 秒（既定 0.5）を重ねる。[blend, 終わり − blend) の後に、終わりの blend 秒と始めの blend 秒を smoothstep で混ぜた物をつなぎ、最後に最初のフレームをもう一度置く |
 | `--lower-body neutral` | 腰から下（hips・脚・足・つま先）をまっすぐ立った姿勢にし、腰を原点の真上に置く |
 | `--mirror` | 左右を入れ替える（x = 0 の面で折り返す。回転 (x, y, z, w) → (x, −y, −z, w)、左右の骨の名前を入れ替える） |
+| `--ref-subtract <骨,...> [--ref-window <秒>] [--ref-keep <度>]` | 骨ごとに、切り出した所の始めの `ref-window` 秒（既定 0.3）の平均のローカルの回転を YXZ のオイラー角に分け、前後の傾き（X）と横の回り（Y）を全部のフレームから差し引く（親の側から掛ける。かしげる向き（Z）は残す）。`ref-keep` = 残す下向きの角度（骨の合計。骨の数で等分）。ならしたあとに差し引く |
+| `--shift-hips-z <m>`・`--shift-hips-y <m>` | 腰の位置（前後・上下）を全部のフレームでずらす（§11.4 の置き場を決めたあとに足す） |
+| `--drift-hips-z <m>` | 腰の前後の位置を、0 秒 0 → 終わり `m` まで時間に比べて引く |
+| `--hips-y <m\|stand>` | 腰の高さを一定にする（`stand` = 切り出した所の始めの `ref-window` 秒の平均の高さ） |
+| `--freeze <秒> [--freeze-length <秒>]` | 元の動画のその秒にいちばん近いフレームを `freeze-length` 秒（既定 1.5）並べたループ。腰の水平の位置は原点。`sourceStartSec` は止めたフレームの秒 |
+| `--walk-speed <m/s\|auto> [--leg-length <m>]` | アニメーションの `extras.walkSpeed`・`extras.legLength` に書く（sakurami-cho の `vrmAnimation.ts` がモデルの脚の長さとの比で速さを直す）。`auto` = 進む分を消したあとの、床に着いた足（足首がその足のいちばん低い所 + 1.5 cm 以内）が後ろへ動く速さの中央値。脚の長さの既定は T ポーズの太もも + すね |
+
+足したオプションを使ったときは、`extras.h3MotionCreator` にその値（`refSubtract` は骨ごとに差し引いた角度）も書く。使わなければ前と同じ物を書く。
 
 ### 11.4 腰の置き場
 
