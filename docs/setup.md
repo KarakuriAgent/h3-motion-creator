@@ -79,7 +79,8 @@ ComfyUI の `models/` の下に置く（`extra_model_paths.yaml` で別の所に
 | `models/diffusion_models/` | `minimax_h3_fl2va_pruned_w4a8_mixed.safetensors` | Hugging Face `Kijai/MiniMax-H3-experimental` |
 | `models/loras/` | `minimax_h3_ref_lora_rank_256_bf16.safetensors`（参照 LoRA） | Hugging Face `Kijai/MiniMax-H3-experimental`（`loras/`） |
 | `models/loras/` | `minimax_h3_fl2v_turbo_4step_v1.3_768p_comfyui_bf16.safetensors`（4step 蒸留 LoRA） | Hugging Face `lightx2v/Minimax-h3-Turbo` |
-| `models/vae/` | `minimax_h3_video_vae_int8_convrot.safetensors`・`minimax_h3_audio_vae_fp32.safetensors` | Hugging Face `Comfy-Org/MiniMax-H3`（`vae/`） |
+| `models/vae/` | `minimax_h3_video_vae_int8_convrot.safetensors`（映像の VAE） | Hugging Face `Kijai/MiniMax-H3-experimental` |
+| `models/vae/` | `minimax_h3_audio_vae_fp32.safetensors`（音声の VAE） | Hugging Face `Comfy-Org/MiniMax-H3`（`vae/`） |
 | `models/text_encoders/` | `qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors` | Hugging Face `Momoking/Qwen3-VL-32B-Heretic-MiniMax-H3-NVFP4` |
 
 ```
