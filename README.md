@@ -26,16 +26,6 @@ VRM ──▶ 三面図 ──▶ H3（参照つきの動画生成）──▶ G
 
 ## はじめかた
 
-必要な物:
-
-- Linux（または WSL2）と NVIDIA の GPU
-- Node.js 20 以上・Python 3.12（uv）・ffmpeg・git / git-lfs
-- ComfyUI（MiniMax H3 対応の版）とカスタムノード・SageAttention・H3 のモデル
-- GEM-X とその重み
-- シェルを実行でき、画像を見て判断できるコーディングエージェント
-
-ComfyUI と GEM-X まわりは、下の手順で開いた画面の環境チェックで足りない物が分かります。
-
 ```bash
 npm install
 npm run setup:browser   # 初めの 1 回だけ
