@@ -99,6 +99,7 @@ GEM-X（NVlabs/GEM-X）は動画から体の 77 関節（体・指）と腰の�
 cd <アプリのフォルダ>
 git clone --recursive https://github.com/NVlabs/GEM-X vendor/GEM-X     # soma-retargeter のサブモジュールは SSH の URL（git@github.com:）なので、鍵が無いとここで止まる
 cd vendor/GEM-X
+git checkout 3299255   # 重み（§4.4 の Hugging Face の版）と合うコードの版に固定する
 git -c url."https://github.com/".insteadOf="git@github.com:" submodule update --init --recursive   # https に読み替えて取り直す
 git -C third_party/sam-3d-body checkout -f HEAD                        # 1 回目の clone が途中で止まると、中身が空のまま残る
 git -C third_party/soma lfs pull                                       # SOMA の体の形（約 800MB。git-lfs が要る）
@@ -139,10 +140,10 @@ uv pip install onnxruntime-gpu       # 人の検出（YOLOX の ONNX）に要る
 
 ```
 node -e "require('fs').symlinkSync(require('path').resolve('third_party/soma/assets'), 'inputs/soma_assets', 'junction')"   # GEM-X は SOMA の体を inputs/soma_assets から読む（このリンクが無いと推定で止まる。既にあれば要らない）
-<GEM-X の python> -c "from gem.utils import hf_utils as h; h.download_checkpoint(); h.download_vitpose_checkpoint(); h.download_sam3d_checkpoint(); h.download_mhr_model(); h.download_soma_data()"
+<GEM-X の python> -c "import functools, huggingface_hub as hh; hh.hf_hub_download = functools.partial(hh.hf_hub_download, revision='5b9a69d5ed4713ac4ba2a63b335e66db87279a3e'); from gem.utils import hf_utils as h; h.download_checkpoint(); h.download_vitpose_checkpoint(); h.download_sam3d_checkpoint(); h.download_mhr_model(); h.download_soma_data()"
 ```
 
-- Hugging Face の `nvidia/GEM-X` から約 6.4GB: `inputs/pretrained/gem_soma.ckpt`・`inputs/checkpoints/vitpose/vitpose.pth`・
+- Hugging Face の `nvidia/GEM-X` の版 `5b9a69d5ed47`（コードの版 `3299255` に合う重み。main は別の版の重みに入れ替わっている）から約 6.4GB: `inputs/pretrained/gem_soma.ckpt`・`inputs/checkpoints/vitpose/vitpose.pth`・
   `inputs/checkpoints/sam-3d-body-dinov3/sam3d_body.ckpt`・`inputs/mhr_data/mhr_model.pt`・`inputs/soma_data/`
 - SAM 3D Body の重みは Hugging Face で利用の同意（gated）が要ることがある。取れなければ人に `hf auth login` と同意を頼む
 - 人の検出の YOLOX の重みは、初めて推定したときに `~/.cache/rtmlib/hub/checkpoints/` に自動で取ってくる
