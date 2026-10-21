@@ -307,7 +307,7 @@
   },
   "143": {
     "inputs": {
-      "lora_name": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+      "lora_name": "minimax_h3_fl2v_turbo_4step_v1.3_768p_comfyui_bf16.safetensors",
       "strength_model": 1.0,
       "model": [
         "127",

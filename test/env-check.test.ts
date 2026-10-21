@@ -31,7 +31,7 @@ describe('ワークフローから要る物を取り出す', () => {
     const names = modelFiles(graph).map((m) => m.name)
     expect(names).toContain('minimax_h3_fl2va_pruned_w4a8_mixed.safetensors')
     expect(names).toContain('minimax_h3_ref_lora_rank_256_bf16.safetensors')
-    expect(names).toContain('minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors')
+    expect(names).toContain('minimax_h3_fl2v_turbo_4step_v1.3_768p_comfyui_bf16.safetensors')
     expect(modelFiles(graph).filter((m) => m.group === 'main')).toHaveLength(3)
     expect(modelFiles(graph).filter((m) => m.group === 'support')).toHaveLength(3)
   })
