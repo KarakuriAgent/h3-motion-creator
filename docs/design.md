@@ -308,10 +308,11 @@ h3-motion-creator の依頼です（依頼 id: <id>）。
 ■ 手順書: <アプリのフォルダ>/docs/agent-guide.md（最初に全部読む。H3 のプロンプトの決まりは docs/h3-prompt.md）
 
 進め方:
-1. GET /api/jobs/<id> で、三面図・ComfyUI の URL・GEM-X のパス・同梱のワークフローと道具の場所を取る。
-2. docs/h3-prompt.md の決まりで英文の指示（Ref2VA の 6 節。三面図は <Picture 1>）を書き、tools/h3_r2v.mjs で ComfyUI へ直接投げる。
+1. GET /api/jobs/<id> で、三面図・ComfyUI の URL・GEM-X のパス・同梱のワークフローと道具の場所・作業用のフォルダ（app.workDir）を取る。
+2. docs/h3-prompt.md の決まりで英文の指示（Ref2VA の 6 節。三面図は <Picture 1>）を書き、node tools/h3_r2v.mjs --app <サーバ> --job <id> … で ComfyUI へ直接投げる。
    コマを見て、崩れていれば seed を変えて焼き直す。
-3. GPU のメモリが足りなければ node tools/free_vram.mjs（任意）。node tools/gemx.mjs で bones.glb・stats.json を作り、node tools/to_vrma/to_vrma.mjs で motion.vrma にする。
+3. GPU のメモリが足りなければ node tools/free_vram.mjs --app <サーバ>（任意）。node tools/gemx.mjs … --app <サーバ> で bones.glb・stats.json を作り、node tools/to_vrma/to_vrma.mjs で motion.vrma にする。
+   道具には必ず --app <サーバ> を付ける（付けないと既定の http://127.0.0.1:4170 のアプリの設定を見る）。
    ループ・その場・前の向きは、動きを見て決めてよい。
 4. 進み具合は POST …/status、結果は PUT …/files/{source.mp4, bones.glb, motion.vrma, stats.json}。
 5. 最後に status を done にして、seed・焼き直しの回数・所見を書く。確認用の動画はアプリが焼く。

@@ -5,10 +5,13 @@
 
 - アプリのサーバ: 依頼文に書いてある URL（既定 `http://127.0.0.1:4170`）。認証なし。`curl` で叩く
 - アプリのフォルダ: 依頼文に書いてある絶対パス。下の `tools/`・`workflows/`・`docs/` はそこからの相対
-- 依頼の id: 依頼文の `依頼 id`（例 `wave-001`）。下では `$ID`、サーバを `$APP`、アプリのフォルダを `$ROOT` と書く
+- 依頼の id: 依頼文の `依頼 id`（例 `wave-001`）。下では `$ID`、サーバを `$APP`、アプリのフォルダを `$ROOT`、作業用のフォルダを `$W` と書く
+- 作業用のフォルダ: 依頼の中身の `app.workDir`（既定 `$ROOT/data/jobs/$ID/work`。サーバの作業データの置き場（`DATA_DIR`）を変えていれば別の所。決め打ちせず `app.workDir` を使う）
+- 道具（`tools/h3_r2v.mjs`・`tools/free_vram.mjs`・`tools/gemx.mjs`）には `--app $APP` を付ける。付けないと既定の `http://127.0.0.1:4170` のアプリを見る
+  （サーバが別のポートだと、依頼が取れない・別の設定の GEM-X を探して止まる）
 
 ```bash
-APP=http://127.0.0.1:4170; ID=wave-001; ROOT=<アプリのフォルダ>
+APP=http://127.0.0.1:4170; ID=wave-001; ROOT=<アプリのフォルダ>; W=<依頼の中身の app.workDir>
 ```
 
 ## 1. 依頼を受け取る
@@ -28,7 +31,7 @@ curl -s $APP/api/jobs/$ID | python3 -m json.tool
 | `comfyui.url`・`comfyui.path`・`comfyui.python` | ComfyUI の URL・フォルダ・python |
 | `gemx.path`・`gemx.python` | GEM-X のフォルダとその venv の python（`tools/gemx.mjs` が使う） |
 | `app.workflow`・`app.tools`・`app.docs` | 同梱のワークフロー・道具・手順書の絶対パス |
-| `app.workDir` | 作業用に使ってよいフォルダ（`data/jobs/$ID/work`。中間ファイルを置く） |
+| `app.workDir` | 作業用に使ってよいフォルダ（`$W`。既定 `data/jobs/$ID/work`。中間ファイルを置く） |
 | `api.status`・`api.files` | 進み具合と結果を置く URL |
 
 始める前に `GET $APP/api/env` を見て、`ready: true` か確かめる（`false` なら人に伝えて止める。セットアップは別の依頼）。
@@ -48,7 +51,7 @@ curl -s -X POST $APP/api/jobs/$ID/status -H 'Content-Type: application/json' \
 
 ## 3. H3 の指示を書く
 
-`docs/h3-prompt.md` を読み、その決まりで英文の指示（Ref2VA の 6 節）を `app.workDir/prompt.txt` に書く。
+`docs/h3-prompt.md` を読み、その決まりで英文の指示（Ref2VA の 6 節）を `$W/prompt.txt` に書く。
 
 - 三面図の見た目（髪・服・小物・画風）は、`threeview.path` の画像を自分の目で見て書く（画像を開ける道具で開く）
 - 依頼の動き（`motion`・`notes`）を、始めと終わりがまっすぐ立った姿勢の段取りに直して書く。尺（`durationSec`）に収まる量にする（5 秒なら 1〜2 つの動作）
@@ -57,8 +60,8 @@ curl -s -X POST $APP/api/jobs/$ID/status -H 'Content-Type: application/json' \
 ## 4. ComfyUI に投げる（tools/h3_r2v.mjs）
 
 ```bash
-mkdir -p $ROOT/data/jobs/$ID/work && cd $ROOT
-node tools/h3_r2v.mjs --job $ID --prompt-file data/jobs/$ID/work/prompt.txt --seed 101 --out data/jobs/$ID/work/take-s101.mp4
+mkdir -p $W && cd $ROOT
+node tools/h3_r2v.mjs --app $APP --job $ID --prompt-file $W/prompt.txt --seed 101 --out $W/take-s101.mp4
 ```
 
 - 三面図・尺・大きさ・ComfyUI の URL は `GET /api/jobs/$ID` から取る（`--image`・`--duration`・`--width`・`--height`・`--comfy` で上書きできる）
@@ -91,7 +94,7 @@ node tools/h3_r2v.mjs --job $ID --prompt-file data/jobs/$ID/work/prompt.txt --se
 できた動画のコマを並べて見る（自分の目で）:
 
 ```bash
-ffmpeg -v error -i data/jobs/$ID/work/take-s101.mp4 -vf "fps=2,scale=240:-2,tile=6x2" -frames:v 1 -y data/jobs/$ID/work/take-s101-sheet.png
+ffmpeg -v error -i $W/take-s101.mp4 -vf "fps=2,scale=240:-2,tile=6x2" -frames:v 1 -y $W/take-s101-sheet.png
 ```
 
 **焼き直す（seed を変えてもう一度。最大 3 回くらい）**のは:
@@ -105,7 +108,7 @@ ffmpeg -v error -i data/jobs/$ID/work/take-s101.mp4 -vf "fps=2,scale=240:-2,tile
 プロンプトの書き方が原因なら（全員が同じ崩れ）、seed より先に指示を直す。採用した物を `source.mp4` にする:
 
 ```bash
-cp data/jobs/$ID/work/take-s101.mp4 data/jobs/$ID/work/source.mp4
+cp $W/take-s101.mp4 $W/source.mp4
 ```
 
 ## 6. GEM-X で骨を取る（tools/gemx.mjs）
@@ -114,8 +117,8 @@ GEM-X は GPU のメモリを最大 8GiB ほど使う。ComfyUI が H3 のモデ
 
 ```bash
 nvidia-smi --query-gpu=memory.used,memory.free --format=csv
-node tools/free_vram.mjs     # 任意。ComfyUI の /free を呼ぶ
-node tools/gemx.mjs data/jobs/$ID/work/source.mp4 data/jobs/$ID/work/gemx   # → bones.glb・stats.json
+node tools/free_vram.mjs --app $APP     # 任意。ComfyUI の /free を呼ぶ
+node tools/gemx.mjs $W/source.mp4 $W/gemx --app $APP   # → bones.glb・stats.json
 ```
 
 - 推定は 5 秒の動画で 1 分ほど。2D の関節を重ねた動画（`gemx/gemx-out/source/0_kp2d77_overlay.mp4`）でずれを見られる
@@ -134,7 +137,7 @@ node tools/gemx.mjs data/jobs/$ID/work/source.mp4 data/jobs/$ID/work/gemx   # �
 ## 7. .vrma にする（tools/to_vrma/to_vrma.mjs）
 
 ```bash
-node tools/to_vrma/to_vrma.mjs --glb data/jobs/$ID/work/gemx/bones.glb --out data/jobs/$ID/work/motion.vrma [オプション]
+node tools/to_vrma/to_vrma.mjs --glb $W/gemx/bones.glb --out $W/motion.vrma [オプション]
 ```
 
 ループ・その場・切り出し・向きは、動きを見て決めてよい:
@@ -158,7 +161,6 @@ node tools/to_vrma/to_vrma.mjs --glb data/jobs/$ID/work/gemx/bones.glb --out dat
 4 つとも置く（`--data-binary @ファイル`）。置かれた物はサーバが形を確かめ、そろったら確認用の動画（骨・VRM・3 枠の比較）を自分で焼く:
 
 ```bash
-W=data/jobs/$ID/work
 curl -s -X POST $APP/api/jobs/$ID/status -H 'Content-Type: application/json' -d '{"state": "uploading"}'
 curl -s -X PUT --data-binary @$W/source.mp4        $APP/api/jobs/$ID/files/source.mp4
 curl -s -X PUT --data-binary @$W/gemx/bones.glb    $APP/api/jobs/$ID/files/bones.glb
@@ -193,6 +195,6 @@ curl -s -X POST $APP/api/jobs/$ID/status -H 'Content-Type: application/json' -d 
 
 ## 10. してはいけないこと
 
-- ComfyUI を止める・再起動する（ほかの人が使っている。VRAM は `node tools/free_vram.mjs` で空ける）
-- 同梱のワークフローの JSON・アプリのファイルを書きかえる（作業は `data/jobs/$ID/work/` で）
+- ComfyUI を止める・再起動する（ほかの人が使っている。VRAM は `node tools/free_vram.mjs --app $APP` で空ける）
+- 同梱のワークフローの JSON・アプリのファイルを書きかえる（作業は `$W`（`app.workDir`）で）
 - モデルの利用条件（`character.meta`）に合わない使い方（作者だけが使えるモデルを、許可の無い人のために動かすなど）。気になれば人に確かめる

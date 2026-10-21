@@ -4,7 +4,7 @@
 //
 // 使い方:
 //   node tools/h3_r2v.mjs --job <依頼 id> --prompt-file prompt.txt --out source.mp4 [--seed 123] [--app http://127.0.0.1:4170]
-//     → 三面図・尺・大きさ・ComfyUI の URL は、アプリの GET /api/jobs/<id> から取る
+//     → 三面図・尺・大きさ・ComfyUI の URL は、アプリの GET /api/jobs/<id> から取る（アプリの URL は --app、無ければ環境変数 APP_URL、既定 http://127.0.0.1:4170）
 //   node tools/h3_r2v.mjs --image threeview.png --prompt-file prompt.txt --duration 5 --width 480 --height 864 --out source.mp4 [--seed 123] [--comfy http://127.0.0.1:8188]
 //   --graph <json>: ComfyUI に送ったグラフを書き出す（確かめ用） / --timeout <秒>: 待つ長さ（既定 1800）
 // 終わりに 1 行の JSON（[h3_r2v] {"seed": …, "promptId": …, "out": …, "seconds": …}）を出す
@@ -28,7 +28,7 @@ const UNUSED_NODES = ['140', '141', '142']
 const UNUSED_INPUTS = ['ref_videos.ref_video_0', 'ref_video_audios.ref_video_audio_0', 'ref_audios.ref_audio_0']
 
 async function main() {
-  const appUrl = opt('--app', 'http://127.0.0.1:4170').replace(/\/+$/, '')
+  const appUrl = (opt('--app') || process.env.APP_URL || 'http://127.0.0.1:4170').replace(/\/+$/, '')
   let image = opt('--image')
   let duration = opt('--duration') && Number(opt('--duration'))
   let width = opt('--width') && Number(opt('--width'))
@@ -37,7 +37,7 @@ async function main() {
   const jobId = opt('--job')
   if (jobId) {
     const r = await fetch(`${appUrl}/api/jobs/${jobId}`)
-    if (!r.ok) die(`依頼 ${jobId} を取れません（${appUrl}。HTTP ${r.status}）`)
+    if (!r.ok) die(`依頼 ${jobId} を取れません（${appUrl}。HTTP ${r.status}。アプリが別の URL なら --app で渡す）`)
     const j = await r.json()
     image ??= j.threeview?.path
     duration ||= j.durationSec

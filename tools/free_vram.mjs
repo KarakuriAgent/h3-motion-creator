@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 // ComfyUI を止めずに、読み込み済みのモデルを GPU のメモリから外す（ComfyUI の POST /free）。GEM-X を動かす前に、空きが足りなければ使う（任意）。依存なし（Node 20 以上）。
-//   node tools/free_vram.mjs
-//   接続先: 環境変数 COMFYUI_URL。無ければアプリの設定（GET <アプリ>/api/settings の comfyuiUrl。アプリの URL は環境変数 APP_URL、既定 http://127.0.0.1:4170）、
+//   node tools/free_vram.mjs [--app http://127.0.0.1:4170]
+//   接続先: 環境変数 COMFYUI_URL。無ければアプリの設定（GET <アプリ>/api/settings の comfyuiUrl。アプリの URL は --app、無ければ環境変数 APP_URL、既定 http://127.0.0.1:4170）、
 //           それも取れなければ http://127.0.0.1:8188
 import { spawnSync } from 'node:child_process'
 
-const appUrl = (process.env.APP_URL || 'http://127.0.0.1:4170').replace(/\/+$/, '')
+const argv = process.argv.slice(2)
+const ai = argv.indexOf('--app')
+// 受けるのは --app <URL> だけ
+if (!(argv.length === 0 || (argv.length === 2 && ai === 0))) {
+  console.error('使い方: node tools/free_vram.mjs [--app http://127.0.0.1:4170]')
+  process.exit(2)
+}
+const appUrl = ((ai >= 0 ? argv[ai + 1] : '') || process.env.APP_URL || 'http://127.0.0.1:4170').replace(/\/+$/, '')
 let comfy = process.env.COMFYUI_URL || ''
 if (!comfy) {
   const s = await fetch(`${appUrl}/api/settings`)

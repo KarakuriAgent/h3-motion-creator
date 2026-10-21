@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // 動画 1 本 → GEM-X の推定 → 骨の glb（bones.glb）と品質の目安（stats.json。元の動画のカメラも入る）。依存なし（Node 20 以上）。
-//   node tools/gemx.mjs <動画.mp4> <出力のフォルダ> [--facing start|mean|ends] [--floor track|fixed] [--floor_window 秒] [--moving_cam]
+//   node tools/gemx.mjs <動画.mp4> <出力のフォルダ> [--facing start|mean|ends] [--floor track|fixed] [--floor_window 秒] [--moving_cam] [--app http://127.0.0.1:4170]
 //   出力: <出力のフォルダ>/bones.glb・stats.json・gemx-out/<動画の名前>/（hpe_results.pt・2D の関節を重ねた 0_kp2d77_overlay.mp4・30 コマ/秒にした動画）
-//   GEM-X の場所: 環境変数 GEMX_ROOT。無ければアプリの設定（GET <アプリ>/api/settings の resolved.gemxPath。アプリの URL は APP_URL、既定 http://127.0.0.1:4170）
+//   GEM-X の場所: 環境変数 GEMX_ROOT。無ければアプリの設定（GET <アプリ>/api/settings の resolved.gemxPath。アプリの URL は --app、無ければ環境変数 APP_URL、既定 http://127.0.0.1:4170）
 //   GEM-X の python: 環境変数 GEMX_PYTHON。無ければアプリの設定の resolved.gemxPython、それも無ければ GEM-X のフォルダの中を探す
 //   推定は中間ファイルがあれば飛ばす（同じ名前の動画を作り直したら gemx-out/<名前>/ を消す）。--facing などを変えて glb だけ作り直すのは速い
 import { spawnSync } from 'node:child_process'
@@ -11,14 +11,21 @@ import { dirname, join, parse, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const appUrl = (process.env.APP_URL || 'http://127.0.0.1:4170').replace(/\/+$/, '')
 const die = (m, code = 1) => {
   console.error(m)
   process.exit(code)
 }
 
 const argv = process.argv.slice(2)
-if (argv.length < 2 || argv[0].startsWith('--')) die('使い方: node tools/gemx.mjs <動画.mp4> <出力のフォルダ> [--facing start|mean|ends] [--floor track|fixed] [--floor_window 秒] [--moving_cam]', 2)
+// --app <アプリの URL>（どこに置いてもよい）。無ければ環境変数 APP_URL、既定 http://127.0.0.1:4170
+let appUrl = process.env.APP_URL || 'http://127.0.0.1:4170'
+const ai = argv.indexOf('--app')
+if (ai >= 0) {
+  if (argv[ai + 1] === undefined) die('--app にはアプリの URL を続ける（例 --app http://127.0.0.1:4170）', 2)
+  appUrl = argv.splice(ai, 2)[1]
+}
+appUrl = appUrl.replace(/\/+$/, '')
+if (argv.length < 2 || argv[0].startsWith('--')) die('使い方: node tools/gemx.mjs <動画.mp4> <出力のフォルダ> [--facing start|mean|ends] [--floor track|fixed] [--floor_window 秒] [--moving_cam] [--app http://127.0.0.1:4170]', 2)
 const video = resolve(argv[0])
 const out = resolve(argv[1])
 const glbArgs = []
@@ -54,7 +61,7 @@ if (!gemxRoot || !py) {
   // アプリの python は、アプリと同じ GEM-X のフォルダを使うときだけ
   if (!py && s?.resolved?.gemxPython && s.resolved.gemxPath && resolve(s.resolved.gemxPath) === resolve(gemxRoot)) py = s.resolved.gemxPython
 }
-if (!gemxRoot || !existsSync(gemxRoot)) die(`エラー: GEM-X が見つかりません（GEMX_ROOT=${gemxRoot}。環境変数 GEMX_ROOT か、アプリの設定の GEM-X のパス）`)
+if (!gemxRoot || !existsSync(gemxRoot)) die(`エラー: GEM-X が見つかりません（GEMX_ROOT=${gemxRoot}。環境変数 GEMX_ROOT か、アプリの設定の GEM-X のパス。アプリ ${appUrl} の設定を見た。アプリが別の URL なら --app で渡す）`)
 gemxRoot = resolve(gemxRoot)
 py ||= findPython(gemxRoot) ?? ''
 if (!py || !isFile(py)) die(`エラー: GEM-X の python が見つかりません（${py || gemxRoot}。環境変数 GEMX_PYTHON か、アプリの設定の GEM-X の python）`)
