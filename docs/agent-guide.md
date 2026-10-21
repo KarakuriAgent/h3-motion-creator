@@ -25,8 +25,8 @@ curl -s $APP/api/jobs/$ID | python3 -m json.tool
 | `durationSec`・`aspect`・`width`・`height`・`fps` | 尺（秒）・画角・H3 に渡す大きさ（9:16 は 480x864、16:9 は 864x480）・24 |
 | `threeview.path`・`threeview.url` | 三面図（正面・右側・後ろを横に並べた PNG。A ポーズ）。`<Picture 1>` として渡す |
 | `character` | モデルのファイル名・身長・利用条件（`meta`） |
-| `comfyui.url`・`comfyui.path` | ComfyUI の URL とフォルダ |
-| `gemx.path`・`gemx.python` | GEM-X のフォルダとその venv の python |
+| `comfyui.url`・`comfyui.path`・`comfyui.python` | ComfyUI の URL・フォルダ・python |
+| `gemx.path`・`gemx.python` | GEM-X のフォルダとその venv の python（`tools/gemx.mjs` が使う） |
 | `app.workflow`・`app.tools`・`app.docs` | 同梱のワークフロー・道具・手順書の絶対パス |
 | `app.workDir` | 作業用に使ってよいフォルダ（`data/jobs/$ID/work`。中間ファイルを置く） |
 | `api.status`・`api.files` | 進み具合と結果を置く URL |
@@ -108,14 +108,14 @@ ffmpeg -v error -i data/jobs/$ID/work/take-s101.mp4 -vf "fps=2,scale=240:-2,tile
 cp data/jobs/$ID/work/take-s101.mp4 data/jobs/$ID/work/source.mp4
 ```
 
-## 6. GEM-X で骨を取る（tools/gemx.sh）
+## 6. GEM-X で骨を取る（tools/gemx.mjs）
 
 GEM-X は GPU のメモリを最大 8GiB ほど使う。ComfyUI が H3 のモデルを載せたままだと足りないので、空きを見て、足りなければ外す（ComfyUI は止めない）:
 
 ```bash
 nvidia-smi --query-gpu=memory.used,memory.free --format=csv
-tools/free_vram.sh          # 任意。ComfyUI の /free を呼ぶ
-tools/gemx.sh data/jobs/$ID/work/source.mp4 data/jobs/$ID/work/gemx   # → bones.glb・stats.json
+node tools/free_vram.mjs     # 任意。ComfyUI の /free を呼ぶ
+node tools/gemx.mjs data/jobs/$ID/work/source.mp4 data/jobs/$ID/work/gemx   # → bones.glb・stats.json
 ```
 
 - 推定は 5 秒の動画で 1 分ほど。2D の関節を重ねた動画（`gemx/gemx-out/source/0_kp2d77_overlay.mp4`）でずれを見られる
@@ -193,6 +193,6 @@ curl -s -X POST $APP/api/jobs/$ID/status -H 'Content-Type: application/json' -d 
 
 ## 10. してはいけないこと
 
-- ComfyUI を止める・再起動する（ほかの人が使っている。VRAM は `tools/free_vram.sh` で空ける）
+- ComfyUI を止める・再起動する（ほかの人が使っている。VRAM は `node tools/free_vram.mjs` で空ける）
 - 同梱のワークフローの JSON・アプリのファイルを書きかえる（作業は `data/jobs/$ID/work/` で）
 - モデルの利用条件（`character.meta`）に合わない使い方（作者だけが使えるモデルを、許可の無い人のために動かすなど）。気になれば人に確かめる

@@ -52,10 +52,10 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 | `web/` | 画面（Vite ＋ React ＋ TypeScript ＋ three.js ＋ three-vrm ＋ three-vrm-animation）。ビルドした物はサーバが配る |
 | `workflows/minimax_h3_r2v_turbo.json` | 同梱のワークフロー（ComfyUI の API 形式のグラフ） |
 | `tools/h3_r2v.mjs` | ワークフローに入力を差し込んで ComfyUI に投げ、できた動画を取る（エージェントが使う） |
-| `tools/gemx.sh`・`tools/gemx_infer.py`・`tools/gemx2glb.py` | GEM-X の推定 → 骨の glb・品質の目安（エージェントが使う。Python は GEM-X の venv で動かす） |
+| `tools/gemx.mjs`・`tools/gemx_infer.py`・`tools/gemx2glb.py` | GEM-X の推定 → 骨の glb・品質の目安（エージェントが使う。Python は GEM-X の venv で動かす） |
 | `tools/to_vrma/` | 骨の glb → `.vrma`（Node。エージェントが使う） |
 | `tools/skel.py`・`tools/render_bones.py`・`tools/make_compare.py` | 確認用の骨の動画・3 枠の比較の動画（サーバが GEM-X の venv の python で呼ぶ） |
-| `tools/free_vram.sh` | ComfyUI を止めずに、読み込み済みのモデルを GPU のメモリから外す（任意） |
+| `tools/free_vram.mjs` | ComfyUI を止めずに、読み込み済みのモデルを GPU のメモリから外す（任意） |
 | `docs/agent-guide.md`・`docs/h3-prompt.md`・`docs/setup.md` | エージェント用の手順書・H3 のプロンプトの決まり・セットアップの手順 |
 | `data/` | 作業データ（git の外） |
 | `vendor/` | 設定のパスが空のときに ComfyUI・GEM-X を作る所（git の外） |
@@ -69,6 +69,7 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 ### 4.1 環境チェック／設定
 
 - 設定の欄: ComfyUI のパス・ComfyUI の URL（既定 `http://127.0.0.1:8188`）・GEM-X のパス。それぞれの下に実際に見る所（空なら `vendor/ComfyUI`・`vendor/GEM-X`）を出す
+- ComfyUI の python・GEM-X の python（任意。空なら自動で探す。§6.1）。それぞれの下に使う python（見つからなければ「見つからない」）を出す
 - ComfyUI のパスと GEM-X のパスの欄の横に「フォルダを選ぶ」。押すとフォルダを選ぶダイアログ（モーダル）が開く。
   ブラウザの標準のフォルダの選択（`input` の `webkitdirectory`・`showDirectoryPicker`）は絶対パスが取れず、OS ごとのネイティブのダイアログは OS で動きが変わるので使わない。
   サーバのフォルダを見て回る API（`GET /api/fs/dirs`）を画面の中のダイアログで見せる
@@ -123,8 +124,8 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 |---|---|---|
 | `GET /api/env` | 画面 | 環境チェックを走らせて結果を返す（`EnvReport`。§13）。`?cached=1` なら最後の結果 |
 | `GET /api/setup-request` | 画面 | `{text, env}`。`text` は足りない物だけを入れるセットアップの依頼文（全部 OK なら `null`） |
-| `GET /api/settings` | 画面・道具 | 設定と、実際に見るパス（`resolved`: `comfyuiPath`・`gemxPath`・`gemxPython`・パスが設定から来たか） |
-| `PUT /api/settings` | 画面・エージェント | `{comfyuiPath?, comfyuiUrl?, gemxPath?}` を書く |
+| `GET /api/settings` | 画面・道具 | 設定と、実際に見るパス（`resolved`: `comfyuiPath`・`gemxPath`・`comfyuiPython`・`gemxPython`（見つからなければ `null`）・それぞれ設定から来たか） |
+| `PUT /api/settings` | 画面・エージェント | `{comfyuiPath?, comfyuiUrl?, gemxPath?, comfyuiPython?, gemxPython?}` を書く |
 | `GET /api/fs/dirs?path=<絶対パス>&hidden=1` | 画面 | フォルダを選ぶダイアログ（§4.1）が読む。下の表 |
 | `GET /api/models` | 画面 | 登録した VRM の一覧（`meta.json` の並び。新しい順） |
 | `POST /api/models?name=<ファイル名>` | 画面 | 本文 = VRM。メタ情報を読んで登録し（VRM でなければ 400）、三面図を描き始める。201 と `meta.json` |
@@ -149,8 +150,8 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 | `width`・`height`・`fps` | H3 に渡す大きさ（9:16 は 480x864、16:9 は 864x480。0.4MP・32 の倍数）・24 |
 | `character` | `modelId`・`fileName`・`name`・`heightM`・`vrmPath`（絶対パス）・`meta`（利用条件） |
 | `threeview` | `state`・`url`・`path`（絶対パス）・`width`・`height`・`layout`（並び方の説明） |
-| `comfyui` | `url`・`path`（実際に見るパス） |
-| `gemx` | `path`・`python`（GEM-X の venv の python） |
+| `comfyui` | `url`・`path`（実際に見るパス）・`python`（ComfyUI の python。見つからなければ `null`） |
+| `gemx` | `path`・`python`（GEM-X の venv の python。見つからなければ `null`） |
 | `app` | `root`・`serverUrl`・`workflow`・`docs`（`agentGuide`・`h3Prompt`）・`tools`（`h3R2v`・`freeVram`・`gemx`・`gemxInfer`・`gemx2glb`・`toVrma`）・`workDir`（`data/jobs/<id>/work`。エージェントの作業用） |
 | `api` | `status`・`files`（結果を置く URL）・`proofs`（確認用の動画の URL） |
 
@@ -187,10 +188,20 @@ data/
 ### 6.1 settings.json
 
 ```json
-{ "comfyuiPath": "", "comfyuiUrl": "http://127.0.0.1:8188", "gemxPath": "" }
+{ "comfyuiPath": "", "comfyuiUrl": "http://127.0.0.1:8188", "gemxPath": "", "comfyuiPython": "", "gemxPython": "" }
 ```
 
-空のパスは `vendor/ComfyUI`・`vendor/GEM-X` を見る。`~/` はホームに広げる。URL の末尾の `/` は落とす。GEM-X の python は `<GEM-X>/.venv/bin/python`。
+空のパスは `vendor/ComfyUI`・`vendor/GEM-X` を見る。`~/` はホームに広げる。URL の末尾の `/` は落とす。
+
+python（`comfyuiPython`・`gemxPython`）は、書いてあればそのファイルを使う。空ならそれぞれのフォルダの中を次の順に探し、最初にある物を使う（無ければ `null`）:
+
+| `process.platform` | 候補 |
+|---|---|
+| `win32` | `venv\Scripts\python.exe`・`.venv\Scripts\python.exe`・`python_embeded\python.exe`・`..\python_embeded\python.exe` |
+| ほか | `venv/bin/python`・`.venv/bin/python`・`venv/bin/python3`・`.venv/bin/python3` |
+
+外のコマンド（`ffmpeg`・`ffprobe`）は PATH から探した実体を、shell を通さず引数の並びで起動する（`win32` は区切り `;`・`.exe`・`.com`）。
+Python を起動するときは `PYTHONUTF8=1` を渡す。
 
 ### 6.2 meta.json（モデル）
 
@@ -300,7 +311,7 @@ h3-motion-creator の依頼です（依頼 id: <id>）。
 1. GET /api/jobs/<id> で、三面図・ComfyUI の URL・GEM-X のパス・同梱のワークフローと道具の場所を取る。
 2. docs/h3-prompt.md の決まりで英文の指示（Ref2VA の 6 節。三面図は <Picture 1>）を書き、tools/h3_r2v.mjs で ComfyUI へ直接投げる。
    コマを見て、崩れていれば seed を変えて焼き直す。
-3. GPU のメモリが足りなければ tools/free_vram.sh（任意）。tools/gemx.sh で bones.glb・stats.json を作り、tools/to_vrma/to_vrma.mjs で motion.vrma にする。
+3. GPU のメモリが足りなければ node tools/free_vram.mjs（任意）。node tools/gemx.mjs で bones.glb・stats.json を作り、node tools/to_vrma/to_vrma.mjs で motion.vrma にする。
    ループ・その場・前の向きは、動きを見て決めてよい。
 4. 進み具合は POST …/status、結果は PUT …/files/{source.mp4, bones.glb, motion.vrma, stats.json}。
 5. 最後に status を done にして、seed・焼き直しの回数・所見を書く。確認用の動画はアプリが焼く。
@@ -316,7 +327,7 @@ h3-motion-creator のセットアップの依頼です。
 プロジェクトのフォルダ: <アプリのフォルダ>
 手順書: <アプリのフォルダ>/docs/setup.md（最初に読む）
 
-今の設定: ComfyUI のパス（空なら「空 → vendor/ComfyUI」）・URL・GEM-X のパス
+今の設定: ComfyUI のパス（空なら「空 → vendor/ComfyUI」）・URL・GEM-X のパス・ComfyUI と GEM-X の python（空なら見つかった物）
 
 足りない物:
 - <項目>: <見た物>
@@ -372,7 +383,7 @@ VRM を登録すると、サーバがヘッドレスのブラウザで `render/t
 
 ## 10. GEM-X の推定と骨の glb
 
-### 10.1 推定（`tools/gemx_infer.py`。`tools/gemx.sh` が呼ぶ）
+### 10.1 推定（`tools/gemx_infer.py`。`tools/gemx.mjs` が呼ぶ）
 
 GEM-X の `scripts/demo/demo_soma.py` の関数を同じ順に呼ぶ（GEM-X のファイルは変えない。GEM-X の根で、その venv の python で動かす）:
 
@@ -470,17 +481,16 @@ glb（glTF 2.0 ＋ `VRMC_vrm_animation` 1.0）。`humanoid.humanBones` に VRM �
 
 | 項目 | 何で調べる | OK の条件 | 無いときの直し方（セットアップの依頼文に入る） |
 |---|---|---|---|
-| GPU（CUDA） | `nvidia-smi` | GPU の名前とメモリが取れる | ドライバを入れる（人に確かめる） |
-| ffmpeg | PATH | `ffmpeg` と `ffprobe` がある | 入れる（sudo が要るなら人に頼む） |
+| ffmpeg | PATH | `ffmpeg` と `ffprobe` がある | 入れて PATH に通す（入れ方の例を添える。sudo が要るなら人に頼む） |
 | ComfyUI の場所 | パス | フォルダと `main.py` がある | 設定のパスなら直すかそこに入れる。空なら `vendor/ComfyUI` に clone して作る（URL で ComfyUI が動いていれば、そのフォルダを人に確かめる） |
 | ComfyUI が起動している | URL | `/system_stats` と `/object_info` が取れる | 起動するか URL を直す |
 | H3 の本体（fl2va）と LoRA 2 本 | パス（＋ URL） | ワークフローの UNETLoader・LoraLoaderModelOnly が読むファイルが `models/` の下（`diffusion_models`・`unet`・`loras`。3 段まで）にある。ComfyUI のフォルダがあり、`/object_info` の選択肢に名前があれば、別の所に置いた物でもよい | 足りないファイルを `models/<フォルダ>/` に入れる |
 | H3 の VAE とテキストエンコーダ | パス（＋ URL） | 同じく VAELoader・CLIPLoader が読むファイル（`vae`・`text_encoders`・`clip`） | 同上 |
 | カスタムノード | パス | 本体の `comfy_extras/nodes_minimax_h3.py`・`comfy_extras/nodes_sparse_attention.py`、`custom_nodes/` に `kjnodes`・`spectrum-minimax-h3` を名前に含むフォルダ（大文字小文字は見ない。`.disabled` は除く） | 本体を新しい版に（人に確かめる）。カスタムノードは clone して requirements を ComfyUI の venv に |
-| SageAttention | パス | ComfyUI の venv（`venv/` か `.venv/`）の python で `import sageattention` が通る | 合う版を ComfyUI の venv に入れる（再起動は人に確かめる） |
+| SageAttention | パス | ComfyUI の python（§6.1）で `import sageattention` が通る | python が見つからなければ、設定の python を書くか venv を作る。合う版を ComfyUI の python に入れる（再起動は人に確かめる） |
 | ComfyUI にノードが登録されている | URL | ワークフローの class_type（外すローダーを除く）が全部 `/object_info` にある | カスタムノードを入れた後に ComfyUI を再起動する |
 | GEM-X の場所 | パス | フォルダと `scripts/demo/demo_soma.py` がある | 設定のパスなら直すかそこに入れる。空なら `vendor/GEM-X` に clone して作る |
-| GEM-X の venv | パス | `.venv/bin/python` で torch・numpy・scipy・cv2・PIL・hydra・onnxruntime が読め、torch で CUDA が使え、onnxruntime に `CUDAExecutionProvider` がある | uv で venv を作り、GPU に合う CUDA の版の PyTorch・SOMA・onnxruntime-gpu を入れる |
+| GEM-X の venv | パス | GEM-X の python（§6.1）で torch・numpy・scipy・cv2・PIL・hydra・onnxruntime が読める | python が見つからなければ、設定の python を書くか uv で venv を作る。GPU に合う CUDA の版の PyTorch・SOMA・onnxruntime-gpu を入れる |
 | GEM-X の重み | パス | `inputs/pretrained/gem_soma.ckpt`・`inputs/checkpoints/vitpose/vitpose.pth`・`inputs/checkpoints/sam-3d-body-dinov3/sam3d_body.ckpt`・`inputs/mhr_data/mhr_model.pt`・`inputs/soma_assets/SOMA_neutral.npz`・`inputs/soma_data` | GEM-X の取得の関数で取り、`inputs/soma_assets` のリンクを張る |
 
 - 要るモデルのファイルとノードは、同梱のワークフローから取り出す（ワークフローを差し替えれば、調べる物も変わる）
