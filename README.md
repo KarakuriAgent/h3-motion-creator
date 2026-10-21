@@ -36,6 +36,9 @@ npm start               # → http://127.0.0.1:4170
 開いたら、まず「環境チェック／設定」タブで ComfyUI と GEM-X の場所を選びます。
 足りない物があれば、それを入れるための**セットアップの依頼文**が出るので、これもエージェントに貼れば準備してくれます。
 
+GPU が無い人は、Google Colab のノートブックで一式を Colab の GPU の上に入れて動かせます（上から順にセルを実行するだけ）:
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/KarakuriAgent/h3-motion-creator/blob/main/colab/h3-motion-creator.ipynb)
+
 ## もっと知りたいとき
 
 - [`docs/design.md`](docs/design.md) — 設計書

@@ -149,7 +149,7 @@ export async function probeEnv(ctx: EnvContext): Promise<EnvFacts> {
   const gemxVenv: EnvFacts['gemxVenv'] = { python: gemxPython, pythonLooked: looked(pp.gemxPythonSetting, t.gemxPath), ok: false }
   if (gemxPython) {
     const code = [
-      'import importlib, json, sys',
+      'import importlib.util, json, sys',
       'missing = [m for m in ["torch", "numpy", "scipy", "cv2", "PIL", "hydra", "onnxruntime"] if importlib.util.find_spec(m) is None]',
       'out = {"missing": missing}',
       'try:',

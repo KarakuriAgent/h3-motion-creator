@@ -183,3 +183,13 @@ python が venv・.venv の外（conda など）にあるときは、同じよ�
 §1 の確かめるコマンドで `ready true` になるまで、足りない項目の直し方を見て直す。
 
 報告に書く物: 入れた物と版（ComfyUI のコミット・torch・CUDA・SageAttention・GEM-X のコミット）・取った重み・入れなかった物（detectron2 など）とその理由・人に頼みたいこと。
+
+## 8. Google Colab のとき
+
+`colab/h3-motion-creator.ipynb` が、Colab の実行環境（GPU つきの Linux）の中に上の一式を入れて起動し、設定まで書く。人はセルを上から実行し、エージェントは Colab のターミナルで動かす。
+
+- 置き場: アプリ `/content/h3-motion-creator`・ComfyUI `/content/ComfyUI`（venv は `venv/`）・GEM-X `/content/GEM-X`（venv は `.venv/`）。作業データ（`DATA_DIR`）は Google ドライブの `MyDrive/h3-motion-creator/data`。アプリの URL は `http://127.0.0.1:4170` のまま
+- venv は `--system-site-packages` で作り、Colab に入っている PyTorch を使う（GPU に合わないときだけ venv に cu128 / cu130 の物を入れる）。PyTorch の版は `<venv>/h3-constraints.txt` で固定している。足すときは `<python> -m pip install -c <venv>/h3-constraints.txt …` で、PyTorch を入れ替えない
+- SageAttention はソースからビルドした物（wheel はドライブの `MyDrive/h3-motion-creator/cache/` に残る）
+- 足りない物が出たら、まずノートブックのそのセル（4-1〜4-7）をもう一度実行するよう人に頼む。入っている物は飛ばして、足りない物だけ入れ直す
+- `/content` の下はセッションを止めると消える（ドライブの作業データは残る）

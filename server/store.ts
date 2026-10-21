@@ -1,6 +1,6 @@
 // 作業データの読み書き: data/models/<id>/（model.vrm・threeview.png・meta.json）と data/jobs/<id>/（job.json・結果・確認用の動画）
 import { randomBytes } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Paths } from './config.js'
 import { motionSlug } from './texts.js'
@@ -8,10 +8,18 @@ import { DURATIONS, JOB_STATES, PROOF_FILES, RESULT_FILES, type Aspect, type Job
 
 const now = () => new Date().toISOString()
 
+/** 一時ファイルに書いてから名前を変える（書きかけを読まない）。
+ * 名前を変えられないファイルシステム（ネットワークのドライブの FUSE など）では、そのまま書く */
 function writeJson(path: string, v: unknown): void {
+  const text = JSON.stringify(v, null, 2) + '\n'
   const tmp = `${path}.${process.pid}.tmp`
-  writeFileSync(tmp, JSON.stringify(v, null, 2) + '\n')
-  renameSync(tmp, path)
+  writeFileSync(tmp, text)
+  try {
+    renameSync(tmp, path)
+  } catch {
+    writeFileSync(path, text)
+    rmSync(tmp, { force: true })
+  }
 }
 
 export class Store {

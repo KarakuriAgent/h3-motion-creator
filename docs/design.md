@@ -59,8 +59,16 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 | `docs/agent-guide.md`・`docs/h3-prompt.md`・`docs/setup.md` | エージェント用の手順書・H3 のプロンプトの決まり・セットアップの手順 |
 | `data/` | 作業データ（git の外） |
 | `vendor/` | 設定のパスが空のときに ComfyUI・GEM-X を作る所（git の外） |
+| `colab/h3-motion-creator.ipynb` | Google Colab で一式を動かすノートブック（下） |
 | 外: ComfyUI | 設定のパスと URL。アプリは HTTP で話すだけ（同梱しない） |
 | 外: GEM-X | 設定のパス。アプリの Python の道具がその venv で GEM-X の関数を呼ぶ（GEM-X のファイルは変えない） |
+
+**Google Colab で動かす**（`colab/h3-motion-creator.ipynb`）: Colab の GPU つきの実行環境を 1 台の Linux のマシンとして使い、ComfyUI（カスタムノード・SageAttention・H3 のモデル）・GEM-X・アプリを全部その中に入れて動かす。アプリのコードは手元と同じ。
+
+- セットアップはセッションごと（入っている物は飛ばす）。`/content` の下に ComfyUI・GEM-X・アプリを置き、作業データ（`DATA_DIR`）は Google ドライブに置いてセッションをまたいで残す
+- ComfyUI・GEM-X の venv は Colab の Python の `--system-site-packages` で作り、Colab に入っている PyTorch が GPU に合えばそれを使う（合わなければ venv に入れる）。SageAttention はソースからビルドし、wheel をドライブに残す
+- ComfyUI とアプリは `127.0.0.1` で待ち受け、ノートブックが起動して設定（ComfyUI・GEM-X のパス）を書く。人はアプリの画面を Colab のポートの転送の URL で開く（画面は相対パスで API を呼ぶので、別のオリジン・パスの前置きの下でも動く）
+- エージェントは Colab のターミナルで動かす。同じ実行環境の中なので、依頼文の URL（`http://127.0.0.1:4170`）のままでアプリに届く
 
 ## 4. 画面
 
@@ -172,7 +180,7 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 
 ## 6. データの置き場と形
 
-作業データの根は `data/`（環境変数 `DATA_DIR` で変えられる。git の外）。JSON は一時ファイルに書いてから名前を変える（書きかけを読まない）。
+作業データの根は `data/`（環境変数 `DATA_DIR` で変えられる。git の外）。JSON は一時ファイルに書いてから名前を変える（書きかけを読まない。名前を変えられないファイルシステムでは、そのまま書く）。
 
 ```
 data/

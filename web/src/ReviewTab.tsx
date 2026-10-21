@@ -207,7 +207,7 @@ function JobDetail({ job }: { job: Job }) {
         </figure>
         <figure>
           <figcaption>③ VRM</figcaption>
-          {hasVrma ? <VrmPane vrmUrl={`/api/models/${job.modelId}/model.vrm`} vrmaUrl={`${fileUrl(job.id, 'motion.vrma')}?t=${stamp('motion.vrma')}`} time={t} sourceStartSec={q.sourceStartSec ?? 0} /> : <div className="empty muted">まだ無い</div>}
+          {hasVrma ? <VrmPane vrmUrl={`api/models/${job.modelId}/model.vrm`} vrmaUrl={`${fileUrl(job.id, 'motion.vrma')}?t=${stamp('motion.vrma')}`} time={t} sourceStartSec={q.sourceStartSec ?? 0} /> : <div className="empty muted">まだ無い</div>}
         </figure>
       </div>
       <div className="transport">

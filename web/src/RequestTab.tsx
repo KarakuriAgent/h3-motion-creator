@@ -123,7 +123,7 @@ export function RequestTab({ onGoReview }: { onGoReview: () => void }) {
             </details>
             <figure className="threeview">
               {model.threeview.state === 'done' ? (
-                <img src={`/api/models/${model.id}/threeview.png?t=${model.createdAt}`} alt="A ポーズの三面図（正面・右側・後ろ）" />
+                <img src={`api/models/${model.id}/threeview.png?t=${model.createdAt}`} alt="A ポーズの三面図（正面・右側・後ろ）" />
               ) : model.threeview.state === 'failed' ? (
                 <p className="error">三面図を作れませんでした: {model.threeview.error}</p>
               ) : (
