@@ -127,7 +127,10 @@ export function RequestTab({ onGoReview }: { onGoReview: () => void }) {
               ) : model.threeview.state === 'failed' ? (
                 <p className="error">三面図を作れませんでした: {model.threeview.error}</p>
               ) : (
-                <p className="muted">三面図を作っています…</p>
+                <div className="busy" role="status">
+                  <span className="spinner" aria-hidden="true" />
+                  <span className="muted">三面図を作っています…</span>
+                </div>
               )}
               <figcaption className="muted small">三面図（A ポーズ・正射影・正面／右側／後ろ）· サーバが自動で作成</figcaption>
             </figure>

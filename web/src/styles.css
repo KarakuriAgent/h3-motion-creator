@@ -271,6 +271,33 @@ textarea {
 .threeview {
   margin: 8px 0 0;
 }
+.busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  aspect-ratio: 2982 / 1400;
+  border-radius: 6px;
+  border: 1px dashed var(--line);
+}
+.spinner {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--ui-soft);
+  border-top-color: var(--ui);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
 .license dl {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
