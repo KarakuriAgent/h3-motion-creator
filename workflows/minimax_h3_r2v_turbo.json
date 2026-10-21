@@ -1,0 +1,430 @@
+{
+  "92": {
+    "inputs": {
+      "filename_prefix": "video/MiniMax_H3",
+      "format": "auto",
+      "codec": "auto",
+      "video": [
+        "130",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "SaveVideo"
+    }
+  },
+  "130": {
+    "inputs": {
+      "fps": 24,
+      "bit_depth": 8,
+      "images": [
+        "122",
+        0
+      ],
+      "audio": [
+        "121",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "CreateVideo"
+    }
+  },
+  "122": {
+    "inputs": {
+      "samples": [
+        "125",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "121": {
+    "inputs": {
+      "samples": [
+        "125",
+        0
+      ],
+      "vae": [
+        "120",
+        0
+      ]
+    },
+    "class_type": "VAEDecodeAudio",
+    "_meta": {
+      "title": "VAEDecodeAudio"
+    }
+  },
+  "125": {
+    "inputs": {
+      "noise": [
+        "129",
+        0
+      ],
+      "guider": [
+        "126",
+        0
+      ],
+      "sampler": [
+        "123",
+        0
+      ],
+      "sigmas": [
+        "124",
+        0
+      ],
+      "latent_image": [
+        "136",
+        1
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "119": {
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "120": {
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "129": {
+    "inputs": {
+      "noise_seed": 157368968253448
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "126": {
+    "inputs": {
+      "model": [
+        "154",
+        0
+      ],
+      "conditioning": [
+        "136",
+        0
+      ]
+    },
+    "class_type": "BasicGuider",
+    "_meta": {
+      "title": "BasicGuider"
+    }
+  },
+  "123": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "124": {
+    "inputs": {
+      "scheduler": "simple",
+      "steps": 4,
+      "denoise": 1,
+      "model": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "BasicScheduler",
+    "_meta": {
+      "title": "BasicScheduler"
+    }
+  },
+  "136": {
+    "inputs": {
+      "prompt": [
+        "138",
+        0
+      ],
+      "width": [
+        "115",
+        0
+      ],
+      "height": [
+        "115",
+        1
+      ],
+      "length": [
+        "131",
+        1
+      ],
+      "ref_image_size": "match",
+      "clip": [
+        "128",
+        0
+      ],
+      "vae": [
+        "119",
+        0
+      ],
+      "audio_vae": [
+        "120",
+        0
+      ],
+      "ref_images.ref_image_0": [
+        "137",
+        0
+      ],
+      "ref_videos.ref_video_0": [
+        "141",
+        0
+      ],
+      "ref_video_audios.ref_video_audio_0": [
+        "141",
+        1
+      ],
+      "ref_audios.ref_audio_0": [
+        "142",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3ReferenceToVideo",
+    "_meta": {
+      "title": "MiniMaxH3ReferenceToVideo"
+    }
+  },
+  "127": {
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_w4a8_mixed.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "UNETLoader"
+    }
+  },
+  "138": {
+    "inputs": {
+      "value": "Bold comic-book ink style, heavy linework, red and blue-black palette, night city. Use <Picture 2> and <Picture 1> as reference frames and <Audio 1> exactly as it is.\nCUT 1: top-down view of the little boy superhero on the rooftop — red cape fluttering in the wind, hands planted on his hips, freckles and a cocky grin as he looks straight up into the camera. The camera slowly descends toward him as he delivers his line — as he speaks, comic-book graphic overlay text word by word in sync with his voice: \"GET READY TO\" - \"MEET\" — \"YOUR\" — \"MAKER\" — huge jagged comic lettering, white with heavy black outlines and red drop shadows, tilted at scrappy angles, until the three words hang stacked in the air above him between his face and the lens.\nTRANSITION: a violent WHIP PAN off the rooftop that SMEARS the floating words away with it, motion-streaked —\nCUT 2: low hero angle on the colossal black mech-kaiju towering over the skyline as it rears back and unleashes a GIANT terrifying ROAR — jaws wide with fangs, red eyes and chest-core flaring blinding bright, blue lightning arcing off its head, the roar's shockwave rippling dust and rattling windows down the buildings, comic-style speed-lines and ink splatter bursting from the impact of the sound. It leans INTO the camera as the roar peaks. Hold on the roar."
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Input Text (Prompt)"
+    }
+  },
+  "115": {
+    "inputs": {
+      "aspect_ratio": "16:9 (Widescreen)",
+      "megapixels": 0.4,
+      "multiple": 32
+    },
+    "class_type": "ResolutionSelector",
+    "_meta": {
+      "title": "Resolution Selector (Size)"
+    }
+  },
+  "131": {
+    "inputs": {
+      "expression": "max(5, round(a * 24)) + (5 - (max(5, round(a * 24)) % 17)) % 17",
+      "values.a": [
+        "132",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "ComfyMathExpression"
+    }
+  },
+  "128": {
+    "inputs": {
+      "clip_name": "qwen3vl_32b_heretic_minimax_h3_nvfp4.safetensors",
+      "type": "minimax",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "CLIPLoader"
+    }
+  },
+  "137": {
+    "inputs": {
+      "image": "red_superboy_on_city_roof.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "LoadImage"
+    }
+  },
+  "140": {
+    "inputs": {
+      "file": "reference_clip.mp4"
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "LoadVideo (reference)"
+    }
+  },
+  "141": {
+    "inputs": {
+      "video": [
+        "140",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "GetVideoComponents (reference)"
+    }
+  },
+  "142": {
+    "inputs": {
+      "audio": "reference_track.mp3"
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "LoadAudio (reference)"
+    }
+  },
+  "143": {
+    "inputs": {
+      "lora_name": "minimax_h3_fl2v_turbo_4step_v1.2_768p_comfyui_bf16.safetensors",
+      "strength_model": 1.0,
+      "model": [
+        "127",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Turbo LoRA"
+    }
+  },
+  "144": {
+    "inputs": {
+      "lora_name": "minimax_h3_ref_lora_rank_256_bf16.safetensors",
+      "strength_model": 1.0,
+      "model": [
+        "143",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "Ref LoRA"
+    }
+  },
+  "132": {
+    "inputs": {
+      "value": 5
+    },
+    "class_type": "PrimitiveFloat",
+    "_meta": {
+      "title": "Float (Duration)"
+    }
+  },
+  "151": {
+    "inputs": {
+      "sage_attention": "auto",
+      "allow_compile": false,
+      "model": [
+        "144",
+        0
+      ]
+    },
+    "class_type": "PathchSageAttentionKJ",
+    "_meta": {
+      "title": "PathchSageAttentionKJ"
+    }
+  },
+  "155": {
+    "inputs": {
+      "model": [
+        "151",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3MemoryEfficientSageAttentionPatch",
+    "_meta": {
+      "title": "MiniMaxH3MemoryEfficientSageAttentionPatch"
+    }
+  },
+  "152": {
+    "inputs": {
+      "model": [
+        "155",
+        0
+      ],
+      "selection": "sol-attn",
+      "selection.tau": 1.5,
+      "start_percent": 0.2,
+      "end_percent": 0.9,
+      "dense_blocks": "",
+      "min_tokens": 4096,
+      "extra_tokens": 256,
+      "sink_conditioning": "exact_kv",
+      "verbose": false
+    },
+    "class_type": "BlockSparseAttention",
+    "_meta": {
+      "title": "Block Sparse Attention"
+    }
+  },
+  "153": {
+    "inputs": {
+      "shift_video": 12,
+      "shift_audio": 3,
+      "model": [
+        "152",
+        0
+      ]
+    },
+    "class_type": "MiniMaxH3SigmaShift",
+    "_meta": {
+      "title": "MiniMaxH3SigmaShift"
+    }
+  },
+  "154": {
+    "inputs": {
+      "enabled": true,
+      "blend_weight": 0.75,
+      "degree": 4,
+      "ridge_lambda": 0.1,
+      "window_size": 2,
+      "flex_window": 3,
+      "warmup_steps": 5,
+      "tail_actual_steps": 1,
+      "max_history": 8,
+      "debug": false,
+      "history_storage": "system_ram",
+      "bootstrap_first_forecast": true,
+      "model": [
+        "153",
+        0
+      ]
+    },
+    "class_type": "SpectrumApplyMiniMaxH3",
+    "_meta": {
+      "title": "SpectrumApplyMiniMaxH3"
+    }
+  }
+}

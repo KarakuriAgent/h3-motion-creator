@@ -1,0 +1,43 @@
+{
+  "name": "h3-motion-creator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "VRM の三面図を参照に、MiniMax H3 の r2v で動画を作り、GEM-X で骨を取り出して .vrma にする作業台",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite\"",
+    "dev:server": "tsx watch server/index.ts",
+    "dev:web": "vite",
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "start": "node dist/server/server/index.js",
+    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.web.json --noEmit",
+    "test": "vitest run",
+    "setup:browser": "playwright-core install chromium-headless-shell"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fastify/static": "^9.3.0",
+    "@pixiv/three-vrm": "^3.5.5",
+    "@pixiv/three-vrm-animation": "^3.5.5",
+    "fastify": "^5.12.7",
+    "playwright-core": "^1.63.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^9.2.5",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.4",
+    "vitest": "^4.0.18"
+  }
+}

@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- サーバ（server/render.ts）がヘッドレスのブラウザで開くページ。VRM を A ポーズにして、正面・右側（本人の右）・後ろを正射影で撮り、横に並べた 1 枚を返す -->
+<html>
+<head>
+<meta charset="utf-8" />
+<script type="importmap">
+{ "imports": {
+  "three": "/nm/three/build/three.module.js",
+  "three/addons/": "/nm/three/examples/jsm/",
+  "@pixiv/three-vrm": "/nm/@pixiv/three-vrm/lib/three-vrm.module.js"
+} }
+</script>
+<style>body { margin: 0; background: #fff; }</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
+
+const loader = new GLTFLoader()
+loader.register((p) => new VRMLoaderPlugin(p))
+
+/**
+ * A ポーズ: 上腕を水平から armDown 度下ろし、肘を少しだけ前へ曲げる（手のひらは体の側）。
+ * 正規化した骨は T ポーズが 0。VRM 1.0 は本人の左腕が +X、VRM 0.x は（rotateVRM0 で回した後の骨のローカルでは）-X に伸びるので、向きの符号を変える
+ */
+function aPose(vrm, armDown) {
+  const s = vrm.meta?.metaVersion === '0' ? -1 : 1
+  const a = THREE.MathUtils.degToRad(armDown)
+  const bone = (n) => vrm.humanoid.getNormalizedBoneNode(n)
+  bone('leftUpperArm').rotation.z = -a * s
+  bone('rightUpperArm').rotation.z = a * s
+  // 肘は前（+Z）へ 7° ほど（左腕は +X に伸びるので、Y 軸まわりの負の回りで前へ）
+  bone('leftLowerArm').rotation.y = -0.12 * s
+  bone('rightLowerArm').rotation.y = 0.12 * s
+}
+
+window.renderThreeView = async ({ vrmUrl, panelH, armDown, bg }) => {
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color(bg)
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbbb, 2.0))
+  const sun = new THREE.DirectionalLight(0xffffff, 1.2)
+  scene.add(sun)
+  scene.add(sun.target)
+
+  const vrm = (await loader.loadAsync(vrmUrl)).userData.vrm
+  VRMUtils.rotateVRM0(vrm)
+  vrm.scene.traverse((o) => (o.frustumCulled = false))
+  scene.add(vrm.scene)
+  aPose(vrm, armDown)
+  vrm.expressionManager?.resetValues?.()
+  // 揺れ物を落ち着かせる
+  vrm.springBoneManager?.reset?.()
+  for (let i = 0; i < 120; i++) vrm.update(1 / 60)
+  vrm.scene.updateMatrixWorld(true)
+
+  // 全身の範囲（揺れ物・髪を含む）。余白は身長に比例させる（どの身長でも全身が同じ割合で入る）
+  const box = new THREE.Box3().setFromObject(vrm.scene, true)
+  const size = box.getSize(new THREE.Vector3())
+  const center = box.getCenter(new THREE.Vector3())
+  const margin = size.y * 0.04
+  const viewH = size.y + margin * 2
+  const halfW = Math.max(size.x, size.z) / 2 + margin
+  const viewW = halfW * 2
+  const panelW = Math.round((panelH * viewW) / viewH / 2) * 2
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+  renderer.setPixelRatio(1)
+  renderer.setSize(panelW, panelH)
+  document.body.appendChild(renderer.domElement)
+
+  const far = size.y * 10 + 10
+  const cam = new THREE.OrthographicCamera(-viewW / 2, viewW / 2, viewH / 2, -viewH / 2, 0.01, far)
+  // 正面 = +Z（rotateVRM0 の後の顔の向き）、本人の右 = -X、後ろ = -Z
+  const views = [new THREE.Vector3(0, 0, 1), new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 0, -1)]
+  const sheet = document.createElement('canvas')
+  sheet.width = panelW * views.length
+  sheet.height = panelH
+  const g = sheet.getContext('2d')
+  g.fillStyle = bg
+  g.fillRect(0, 0, sheet.width, sheet.height)
+  const dist = Math.max(size.x, size.y, size.z) * 3 + 1
+  for (const [i, dir] of views.entries()) {
+    const target = center.clone()
+    cam.position.copy(target).addScaledVector(dir, dist)
+    cam.lookAt(target)
+    cam.updateProjectionMatrix()
+    // 光はカメラの少し上・横から（どの面も同じ明るさに）
+    sun.position.copy(target).addScaledVector(dir, size.y * 2).add(new THREE.Vector3(0, size.y * 1.2, 0))
+    sun.target.position.copy(target)
+    renderer.render(scene, cam)
+    g.drawImage(renderer.domElement, i * panelW, 0)
+  }
+  return { png: sheet.toDataURL('image/png'), panelW, panelH, size: size.toArray(), center: center.toArray(), metaVersion: vrm.meta?.metaVersion }
+}
+window.ready = true
+</script>
+</body>
+</html>

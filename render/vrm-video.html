@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- サーバ（server/render.ts）がヘッドレスのブラウザで開くページ。VRM に .vrma を載せて、正面寄りの全身を 1 コマずつ撮る（確認用の VRM の動画） -->
+<html>
+<head>
+<meta charset="utf-8" />
+<script type="importmap">
+{ "imports": {
+  "three": "/nm/three/build/three.module.js",
+  "three/addons/": "/nm/three/examples/jsm/",
+  "@pixiv/three-vrm": "/nm/@pixiv/three-vrm/lib/three-vrm.module.js",
+  "@pixiv/three-vrm-animation": "/nm/@pixiv/three-vrm-animation/lib/three-vrm-animation.module.js"
+} }
+</script>
+<style>body { margin: 0; background: #222; }</style>
+</head>
+<body>
+<script type="module">
+import * as THREE from 'three'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm'
+import { VRMAnimationLoaderPlugin, VRMLookAtQuaternionProxy, createVRMAnimationClip } from '@pixiv/three-vrm-animation'
+
+const loader = new GLTFLoader()
+loader.register((p) => new VRMLoaderPlugin(p))
+loader.register((p) => new VRMAnimationLoaderPlugin(p))
+
+let st = null
+
+/** 読み込んで、撮る準備をする。yawDeg = カメラの正面からの角度（正 = 本人の左寄り） */
+window.setup = async ({ vrmUrl, vrmaUrl, width, height, yawDeg = 15 }) => {
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
+  renderer.setPixelRatio(1)
+  renderer.setSize(width, height)
+  document.body.appendChild(renderer.domElement)
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color(0xe9eaee)
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8a90, 2.2))
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4)
+  sun.position.set(1, 3, 2.5)
+  scene.add(sun)
+  // 床（y = 0）。目は 50cm
+  scene.add(new THREE.GridHelper(20, 40, 0x9a9aa2, 0xc4c4cc))
+
+  const vrm = (await loader.loadAsync(vrmUrl)).userData.vrm
+  VRMUtils.rotateVRM0(vrm)
+  vrm.scene.traverse((o) => (o.frustumCulled = false))
+  scene.add(vrm.scene)
+  // 骨を一度動かしてから大きさを測る（読み込んだ直後は骨の行列がまだ無く、範囲が大きく出る）
+  vrm.update(0)
+  vrm.scene.updateMatrixWorld(true)
+  const box = new THREE.Box3().setFromObject(vrm.scene, true)
+  const heightM = box.max.y - Math.min(0, box.min.y)
+  const anim = (await loader.loadAsync(vrmaUrl)).userData.vrmAnimations[0]
+  if (vrm.lookAt) {
+    const proxy = new VRMLookAtQuaternionProxy(vrm.lookAt)
+    proxy.name = 'VRMLookAtQuaternionProxy'
+    vrm.scene.add(proxy)
+  }
+  const clip = createVRMAnimationClip(anim, vrm)
+  const mixer = new THREE.AnimationMixer(vrm.scene)
+  const action = mixer.clipAction(clip)
+  action.play()
+  const fov = 30
+  const cam = new THREE.PerspectiveCamera(fov, width / height, 0.05, 100)
+  // 全身（頭の上と足の下に余白）が縦・横どちらにも入る距離
+  const span = heightM * 1.25
+  const vfov = THREE.MathUtils.degToRad(fov)
+  const distV = span / 2 / Math.tan(vfov / 2)
+  const hfov = 2 * Math.atan(Math.tan(vfov / 2) * (width / height))
+  const distH = (heightM * 0.9) / 2 / Math.tan(hfov / 2)
+  const dist = Math.max(distV, distH)
+  const yaw = THREE.MathUtils.degToRad(yawDeg)
+  st = { renderer, scene, vrm, mixer, clip, cam, dist, yaw, heightM, hips0: null }
+  return { duration: clip.duration, heightM }
+}
+
+/** 時刻 t（秒。dt = 前のコマからの秒）の姿勢を撮って JPEG の data URL で返す。カメラは腰の水平の位置を追う（床の目は動かないので、移動は目で見える） */
+window.frame = (t, dt = 0) => {
+  const { renderer, scene, vrm, mixer, clip, cam, dist, yaw, heightM } = st
+  mixer.setTime(Math.max(0, Math.min(t, clip.duration - 1e-4)))
+  // 揺れ物は前のコマからの時間で動かす（コマを順に撮るので）
+  vrm.update(dt)
+  vrm.scene.updateMatrixWorld(true)
+  const hips = vrm.humanoid.getNormalizedBoneNode('hips').getWorldPosition(new THREE.Vector3())
+  const lookY = heightM * 0.5
+  cam.position.set(hips.x + Math.sin(yaw) * dist, heightM * 0.55, hips.z + Math.cos(yaw) * dist)
+  cam.lookAt(hips.x, lookY, hips.z)
+  renderer.render(scene, cam)
+  return renderer.domElement.toDataURL('image/jpeg', 0.92)
+}
+window.ready = true
+</script>
+</body>
+</html>
