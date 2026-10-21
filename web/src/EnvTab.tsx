@@ -3,8 +3,8 @@ import type { EnvReport, Settings } from '../../server/shared'
 import { api, copyText, type SettingsView } from './api'
 import { CopyBox } from './CopyBox'
 
-const MARK = { ok: '✓', missing: '✕', optional: '–' } as const
-const WORD = { ok: 'OK', missing: '無い', optional: '任意' } as const
+const MARK = { ok: '✓', missing: '✕' } as const
+const WORD = { ok: 'OK', missing: '無い' } as const
 
 export function EnvTab() {
   const [settings, setSettings] = useState<SettingsView | null>(null)

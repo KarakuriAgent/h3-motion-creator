@@ -243,10 +243,6 @@ textarea {
 .check.missing .state {
   color: var(--bad);
 }
-.check.optional .mark,
-.check.optional .state {
-  color: var(--muted);
-}
 .check .label {
   font-weight: 600;
 }

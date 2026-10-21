@@ -29,7 +29,6 @@ export interface EnvFacts {
   gemx: { dirExists: boolean; hasDemo: boolean }
   gemxVenv: { python: string; exists: boolean; ok: boolean; torch?: string; cuda?: boolean; error?: string; missingModules?: string[] }
   gemxWeights: { rel: string; exists: boolean }[]
-  freeVramScript: boolean
 }
 
 export interface EnvContext {
@@ -191,13 +190,12 @@ export async function probeEnv(ctx: EnvContext): Promise<EnvFacts> {
     gemx: { dirExists: existsSync(t.gemxPath), hasDemo: existsSync(join(t.gemxPath, 'scripts/demo/demo_soma.py')) },
     gemxVenv,
     gemxWeights: GEMX_WEIGHTS.map((rel) => ({ rel, exists: existsSync(join(t.gemxPath, rel)) })),
-    freeVramScript: existsSync(join(ctx.root, 'tools/free_vram.sh')),
   }
 }
 
 // --- 判定 ---
 
-/** 見た結果から、項目ごとの OK・無い・任意を決める */
+/** 見た結果から、項目ごとの OK・無いを決める */
 export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
   const t = resolveTools(ctx.root, ctx.settings)
   const items: CheckItem[] = []
@@ -318,12 +316,6 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
     state: wMissing.length ? 'missing' : 'ok',
     detail: wMissing.length ? `無い: ${wMissing.map((w) => w.rel).join(', ')}` : `${f.gemxWeights.length} 個（gem_soma · vitpose · sam3d_body · mhr · SOMA）`,
     fix: wMissing.length ? 'GEM-X の hf_utils で重みを取る・inputs/soma_assets のリンクを張る（docs/setup.md §4.4）' : undefined,
-  })
-  items.push({
-    id: 'free_vram',
-    label: 'free_vram（ComfyUI の /free）',
-    state: 'optional',
-    detail: f.freeVramScript ? `任意。同梱の tools/free_vram.sh で ${ctx.settings.comfyuiUrl}/free を呼ぶ（ComfyUI は止めない）` : '任意。tools/free_vram.sh が無い',
   })
   const ready = items.every((i) => i.state !== 'missing')
   return {

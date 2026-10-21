@@ -21,7 +21,6 @@ function goodFacts(): EnvFacts {
     gemx: { dirExists: true, hasDemo: true },
     gemxVenv: { python: '/g/.venv/bin/python', exists: true, ok: true, torch: '2.10.0', cuda: true, missingModules: [] },
     gemxWeights: GEMX_WEIGHTS.map((rel) => ({ rel, exists: true })),
-    freeVramScript: true,
   }
 }
 
@@ -46,10 +45,9 @@ describe('ワークフローから要る物を取り出す', () => {
 })
 
 describe('環境チェックの判定', () => {
-  it('全部そろっていれば ready で、free_vram は任意', () => {
+  it('全部そろっていれば ready', () => {
     const r = judgeEnv(goodFacts(), { root, settings })
     expect(r.ready).toBe(true)
-    expect(r.items.find((i) => i.id === 'free_vram')?.state).toBe('optional')
     expect(r.items.filter((i) => i.state === 'missing')).toEqual([])
     expect(setupRequestText(r, { serverUrl: 'http://127.0.0.1:4170', appRoot: root })).toBeNull()
   })

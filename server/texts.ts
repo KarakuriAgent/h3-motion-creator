@@ -101,7 +101,7 @@ export function setupRequestText(env: EnvReport, c: TextContext): string | null 
     '- 動いている ComfyUI を止める・再起動するときは、先に人に確かめる。',
     '- モデルの重みは配布元から取り、それぞれの配布元の決まりに従う。アプリのリポジトリには入れない。',
     `- vendor/ に作ったら PUT ${c.serverUrl}/api/settings にそのパスを書く（例: {"gemxPath": "${c.appRoot}/vendor/GEM-X"}）。`,
-    `- 終わったら GET ${c.serverUrl}/api/env がすべて OK（free_vram は任意）になるのを確かめ、入れた物と版を報告する。`,
+    `- 終わったら GET ${c.serverUrl}/api/env がすべて OK になるのを確かめ、入れた物と版を報告する。`,
   ]
   return lines.join('\n')
 }

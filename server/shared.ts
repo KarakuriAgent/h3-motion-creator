@@ -1,7 +1,7 @@
 // 画面とサーバで共有する型（画面からも読むので、Node の物は使わない）
 
-/** 環境チェックの 1 項目の判定。optional = 任意（無くても動く） */
-export type CheckState = 'ok' | 'missing' | 'optional'
+/** 環境チェックの 1 項目の判定 */
+export type CheckState = 'ok' | 'missing'
 
 export interface CheckItem {
   id: CheckId
@@ -26,7 +26,6 @@ export type CheckId =
   | 'gemx_path'
   | 'gemx_venv'
   | 'gemx_weights'
-  | 'free_vram'
 
 export interface Settings {
   /** ComfyUI のフォルダ。空なら <アプリ>/vendor/ComfyUI */
@@ -43,7 +42,7 @@ export interface EnvReport {
   /** 実際に見たパス（空のときは vendor/ の物） */
   resolved: { comfyuiPath: string; comfyuiPathFromSettings: boolean; gemxPath: string; gemxPathFromSettings: boolean }
   items: CheckItem[]
-  /** 任意の物を除いて全部 OK か */
+  /** 全部 OK か */
   ready: boolean
 }
 

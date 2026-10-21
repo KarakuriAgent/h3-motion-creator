@@ -70,7 +70,7 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 
 - 設定の欄: ComfyUI のパス・ComfyUI の URL（既定 `http://127.0.0.1:8188`）・GEM-X のパス。それぞれの下に実際に見る所（空なら `vendor/ComfyUI`・`vendor/GEM-X`）を出す
 - 「保存して調べる」（`PUT /api/settings` → `GET /api/env`）・「もう一度調べる」
-- 環境チェックの一覧: 項目ごとに 1 行（印 ✓ / ✕ / –、名前、見た物・見つかった物、OK / 無い / 任意）。項目は §13
+- 環境チェックの一覧: 項目ごとに 1 行（印 ✓ / ✕、名前、見た物・見つかった物、OK / 無い）。項目は §13
 - 足りない物があれば、セットアップの依頼文（§7.2）とコピーのボタン。全部 OK なら依頼文は出さない
 
 ### 4.2 依頼
@@ -304,7 +304,7 @@ h3-motion-creator のセットアップの依頼です。
 - 動いている ComfyUI を止める・再起動するときは、先に人に確かめる。
 - モデルの重みは配布元から取り、それぞれの配布元の決まりに従う。アプリのリポジトリには入れない。
 - vendor/ に作ったら PUT /api/settings にそのパスを書く。
-- 終わったら GET /api/env がすべて OK（free_vram は任意）になるのを確かめ、入れた物と版を報告する。
+- 終わったら GET /api/env がすべて OK になるのを確かめ、入れた物と版を報告する。
 ```
 
 - ComfyUI のパスが空で `vendor/ComfyUI` も無いのに、設定の URL で ComfyUI が動いているときは、新しく作る前にそのフォルダを人に確かめて設定に書くよう添える
@@ -440,8 +440,8 @@ glb（glTF 2.0 ＋ `VRMC_vrm_animation` 1.0）。`humanoid.humanBones` に VRM �
 
 ## 13. 環境チェックの判定
 
-起動したときと、画面の「調べる」で走らせる。見て回る所（事実）を集めてから、項目ごとに **OK・無い・任意** を決める（判定は事実だけから決め、テストでは事実を作って確かめる）。
-設定のパスが空なら `vendor/ComfyUI`・`vendor/GEM-X` を見る。任意の物を除いて全部 OK なら `ready`。
+起動したときと、画面の「調べる」で走らせる。見て回る所（事実）を集めてから、項目ごとに **OK・無い** を決める（判定は事実だけから決め、テストでは事実を作って確かめる）。
+設定のパスが空なら `vendor/ComfyUI`・`vendor/GEM-X` を見る。全部 OK なら `ready`。
 
 | 項目 | 何で調べる | OK の条件 | 無いときの直し方（セットアップの依頼文に入る） |
 |---|---|---|---|
@@ -457,7 +457,6 @@ glb（glTF 2.0 ＋ `VRMC_vrm_animation` 1.0）。`humanoid.humanBones` に VRM �
 | GEM-X の場所 | パス | フォルダと `scripts/demo/demo_soma.py` がある | 設定のパスなら直すかそこに入れる。空なら `vendor/GEM-X` に clone して作る |
 | GEM-X の venv | パス | `.venv/bin/python` で torch・numpy・scipy・cv2・PIL・hydra・onnxruntime が読め、torch で CUDA が使え、onnxruntime に `CUDAExecutionProvider` がある | uv で venv を作り、GPU に合う CUDA の版の PyTorch・SOMA・onnxruntime-gpu を入れる |
 | GEM-X の重み | パス | `inputs/pretrained/gem_soma.ckpt`・`inputs/checkpoints/vitpose/vitpose.pth`・`inputs/checkpoints/sam-3d-body-dinov3/sam3d_body.ckpt`・`inputs/mhr_data/mhr_model.pt`・`inputs/soma_assets/SOMA_neutral.npz`・`inputs/soma_data` | GEM-X の取得の関数で取り、`inputs/soma_assets` のリンクを張る |
-| free_vram | — | いつも「任意」（`tools/free_vram.sh` が ComfyUI の `/free` を呼ぶ） | — |
 
 - 要るモデルのファイルとノードは、同梱のワークフローから取り出す（ワークフローを差し替えれば、調べる物も変わる）
 - 重い調べ（python の import）はサーバを止めないよう別のプロセスで非同期に走らせる。同時に頼まれたら 1 回分を共有する
