@@ -411,3 +411,152 @@ table.jobs {
 .log ol {
   padding-left: 18px;
 }
+.grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* フォルダを選ぶダイアログ */
+dialog.picker {
+  /* 上に寄せて置く（選んだパスの長さで高さが変わっても一覧が動かないように） */
+  margin: max(16px, 6vh) auto auto;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - max(16px, 6vh) - 16px);
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+dialog.picker::backdrop {
+  background: rgba(10, 18, 30, 0.45);
+}
+.picker-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  max-height: calc(100vh - max(16px, 6vh) - 18px);
+  overflow: auto;
+}
+.picker-body h2 {
+  margin: 0;
+}
+.picker-body p {
+  margin: 0;
+}
+button.icon {
+  border: none;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 8px;
+  color: var(--muted);
+}
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.crumbs .sep {
+  color: var(--muted);
+}
+button.crumb {
+  border: none;
+  background: none;
+  padding: 1px 4px;
+  color: var(--ui);
+}
+button.crumb.on {
+  color: var(--ink);
+  font-weight: 600;
+}
+button.crumb:hover {
+  background: var(--ui-soft);
+}
+.check-inline {
+  gap: 4px;
+  margin-left: auto;
+}
+.hint {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 0 8px;
+  border-radius: 999px;
+  color: var(--ok);
+  border: 1px solid var(--ok);
+  white-space: nowrap;
+}
+.dirlist {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  flex: 0 0 auto;
+  min-height: 160px;
+  height: 340px;
+  max-height: 40vh;
+  overflow: auto;
+}
+.dirlist:focus-visible {
+  outline: 2px solid var(--ui);
+  outline-offset: 1px;
+}
+.dirlist li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: default;
+  user-select: none;
+}
+.dirlist li .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dirlist li .folder {
+  flex: none;
+  color: var(--warn);
+}
+.dirlist li:hover {
+  background: var(--ui-soft);
+}
+.dirlist li.on {
+  background: var(--ui);
+  color: #fff;
+}
+.dirlist li.on .folder,
+.dirlist li.on .muted {
+  color: #fff;
+}
+.dirlist li.on .hint {
+  color: #fff;
+  border-color: #fff;
+}
+.dirlist li.empty-row {
+  padding: 12px;
+}
+.picker-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.picker-foot .chosen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

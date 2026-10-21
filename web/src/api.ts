@@ -1,5 +1,5 @@
 // サーバの API を呼ぶ小さな包み
-import type { EnvReport, Job, ModelInfo, Settings } from '../../server/shared'
+import type { DirListing, EnvReport, Job, ModelInfo, Settings } from '../../server/shared'
 
 async function call<T>(method: string, url: string, body?: unknown, raw?: Blob): Promise<T> {
   const res = await fetch(url, {
@@ -19,6 +19,7 @@ export const api = {
   setupRequest: () => call<{ text: string | null; env: EnvReport }>('GET', '/api/setup-request'),
   settings: () => call<SettingsView>('GET', '/api/settings'),
   saveSettings: (s: Partial<Settings>) => call<SettingsView>('PUT', '/api/settings', s),
+  dirs: (path: string, hidden = false) => call<DirListing>('GET', `/api/fs/dirs?path=${encodeURIComponent(path)}${hidden ? '&hidden=1' : ''}`),
   models: () => call<ModelInfo[]>('GET', '/api/models'),
   model: (id: string) => call<ModelInfo>('GET', `/api/models/${id}`),
   uploadModel: (file: File) => call<ModelInfo>('POST', `/api/models?name=${encodeURIComponent(file.name)}`, undefined, file),

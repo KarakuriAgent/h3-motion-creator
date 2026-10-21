@@ -6,6 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ensureDirs, loadSettings, makePaths, resolveTools, saveSettings } from './config.js'
 import { checkEnv } from './env-check.js'
+import { isLoopback, listDirs } from './fs-browse.js'
 import { parseGlb, readVrmaInfo, readVrmMeta, summarizeQuality } from './gltf.js'
 import { ProofBaker, readyToBake } from './proofs.js'
 import { renderThreeView } from './render.js'
@@ -91,6 +92,14 @@ export async function buildApp(opts: AppOptions) {
     settings = saveSettings(paths, { ...settings, ...pick(b, ['comfyuiPath', 'comfyuiUrl', 'gemxPath']) })
     lastEnv = null
     return { ...settings, resolved: resolveTools(opts.root, settings) }
+  })
+
+  // --- フォルダを選ぶダイアログ（読むだけ。この PC の中からの接続だけに答える） ---
+
+  app.get('/api/fs/dirs', async (req) => {
+    if (!isLoopback(req.socket.remoteAddress)) throw Object.assign(new Error('フォルダの一覧は、サーバと同じ PC からだけ見られます'), { status: 403 })
+    const q = req.query as { path?: string; hidden?: string }
+    return listDirs(q.path, { hidden: q.hidden === '1' || q.hidden === 'true' })
   })
 
   // --- VRM と三面図 ---

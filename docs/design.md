@@ -69,6 +69,17 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 ### 4.1 環境チェック／設定
 
 - 設定の欄: ComfyUI のパス・ComfyUI の URL（既定 `http://127.0.0.1:8188`）・GEM-X のパス。それぞれの下に実際に見る所（空なら `vendor/ComfyUI`・`vendor/GEM-X`）を出す
+- ComfyUI のパスと GEM-X のパスの欄の横に「フォルダを選ぶ」。押すとフォルダを選ぶダイアログ（モーダル）が開く。
+  ブラウザの標準のフォルダの選択（`input` の `webkitdirectory`・`showDirectoryPicker`）は絶対パスが取れず、OS ごとのネイティブのダイアログは OS で動きが変わるので使わない。
+  サーバのフォルダを見て回る API（`GET /api/fs/dirs`）を画面の中のダイアログで見せる
+  - 開く所: 欄の値（空なら実際に見る所。`vendor/` の既定）。無ければあるところまで上へたどる。どれも開けなければホーム
+  - 上: パンくず（押すとそのフォルダへ）・パスを直接入れて移動（`~` も使える）・「上へ」・「ホーム」・ルート（Windows ならドライブごと）・「隠しフォルダも出す」（既定は出さない。隠れている数を出す）
+  - 一覧: 中のフォルダだけ（名前順）。クリックで選ぶ・ダブルクリックで中へ。シンボリックリンクのフォルダには「リンク」と出し、中へもたどれる。
+    欄に合わせて、ComfyUI らしいフォルダ（`main.py` と `custom_nodes/` がある）・GEM-X らしいフォルダ（`.venv` と `scripts/demo/` がある）に小さな印を出す。今のフォルダが当てはまればパンくずの横にも出す
+  - 下: 選ぶフォルダ（一覧で選んだ物、選んでいなければ今のフォルダ）と印・「やめる」・「このフォルダを選ぶ」
+  - キーボード: 一覧で ↑↓ で選ぶ・→ で中へ・← か Backspace で上へ・Enter で決定。パスの欄では Enter で移動。Esc でやめる
+  - 読めないフォルダ（無い・フォルダでない・権限が無い）はダイアログの中にエラーの文を出し、今の一覧はそのまま
+  - 決めると欄に入り、「保存して調べる」と同じ流れ（`PUT /api/settings` → `GET /api/env`）で保存して調べ直す
 - 「保存して調べる」（`PUT /api/settings` → `GET /api/env`）・「もう一度調べる」
 - 環境チェックの一覧: 項目ごとに 1 行（印 ✓ / ✕、名前、見た物・見つかった物、OK / 無い）。項目は §13
 - 足りない物があれば、セットアップの依頼文（§7.2）とコピーのボタン。全部 OK なら依頼文は出さない
@@ -106,7 +117,7 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 
 ## 5. ローカルサーバの API
 
-認証なし。`127.0.0.1` だけで待ち受ける。エラーは `{"error": "…"}` と 400 / 404 / 500。バイナリは本文にそのまま入れる（`curl --data-binary @ファイル`。Content-Type は問わない）。
+認証なし。`127.0.0.1` だけで待ち受ける（ほかの PC からは叩けない）。エラーは `{"error": "…"}` と 400 / 404 / 500。バイナリは本文にそのまま入れる（`curl --data-binary @ファイル`。Content-Type は問わない）。
 
 | API | 使う側 | 中身 |
 |---|---|---|
@@ -114,6 +125,7 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 | `GET /api/setup-request` | 画面 | `{text, env}`。`text` は足りない物だけを入れるセットアップの依頼文（全部 OK なら `null`） |
 | `GET /api/settings` | 画面・道具 | 設定と、実際に見るパス（`resolved`: `comfyuiPath`・`gemxPath`・`gemxPython`・パスが設定から来たか） |
 | `PUT /api/settings` | 画面・エージェント | `{comfyuiPath?, comfyuiUrl?, gemxPath?}` を書く |
+| `GET /api/fs/dirs?path=<絶対パス>&hidden=1` | 画面 | フォルダを選ぶダイアログ（§4.1）が読む。下の表 |
 | `GET /api/models` | 画面 | 登録した VRM の一覧（`meta.json` の並び。新しい順） |
 | `POST /api/models?name=<ファイル名>` | 画面 | 本文 = VRM。メタ情報を読んで登録し（VRM でなければ 400）、三面図を描き始める。201 と `meta.json` |
 | `GET /api/models/{id}` | 画面 | `meta.json` |
@@ -141,6 +153,19 @@ VRM のキャラクター 1 体と、言葉で書いた動き（「手を振る�
 | `gemx` | `path`・`python`（GEM-X の venv の python） |
 | `app` | `root`・`serverUrl`・`workflow`・`docs`（`agentGuide`・`h3Prompt`）・`tools`（`h3R2v`・`freeVram`・`gemx`・`gemxInfer`・`gemx2glb`・`toVrma`）・`workDir`（`data/jobs/<id>/work`。エージェントの作業用） |
 | `api` | `status`・`files`（結果を置く URL）・`proofs`（確認用の動画の URL） |
+
+`GET /api/fs/dirs` はサーバのフォルダを見て回る。読むだけで、フォルダやファイルを作る・消す・書くことはしない。
+
+- `path`: 絶対パス。省略・空・`~` ならホーム。`~/…` はホームからに広げる。相対パスは 400
+- `hidden`: `1` なら隠しフォルダ（名前が `.` で始まる）も出す。既定は出さない
+- 答えは `DirListing`（`server/shared.ts`）: `{path, parent, sep, home, roots, crumbs, hints, dirs, hiddenCount, truncated}`
+  - `path`: 今のフォルダ（絶対パスにそろえた物）・`parent`: 一つ上（ルートなら `null`）・`sep`: パスの区切り
+  - `home`: ホーム・`roots`: ルートの並び（Windows ならあるドライブ、ほかは `/`）・`crumbs`: パンくず（`{name, path}` の並び。ルートから今のフォルダまで）
+  - `dirs`: 中のフォルダだけ（`{name, path, link?, hints}` の並び。名前順。ファイル・ファイルへのリンク・切れたリンクは入らない）。シンボリックリンクのフォルダは `link: true` で入る。多すぎるときは 2000 個で切り、`truncated: true`
+  - `hints`（今のフォルダと `dirs` のそれぞれ）: `comfyui`（`main.py` と `custom_nodes/` がある）・`gemx`（`.venv` と `scripts/demo/` がある）の並び。どれを出すかは画面が欄に合わせて決める
+  - `hiddenCount`: 隠しフォルダの数（`hidden` に関わらず数える）
+- 読めないときはエラーの文: 無い 404（`フォルダがありません: …`）・フォルダでない 400・読む権限が無い 400（`このフォルダは読めません（読む権限がありません）: …`）
+- 接続がこの PC の中（ループバック）からでなければ 403。待ち受けを変えても、フォルダの一覧は外へ出さない
 
 同じ Fastify は、ほかに `/`（ビルドした画面）・`/render/*`（描画のページ）・`/nm/*`（描画のページが読む `three`・`@pixiv/three-vrm`・`@pixiv/three-vrm-animation` の node_modules の中だけ）を配る。
 

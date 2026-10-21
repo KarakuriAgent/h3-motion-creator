@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { EnvReport, Settings } from '../../server/shared'
 import { api, copyText, type SettingsView } from './api'
 import { CopyBox } from './CopyBox'
+import { FolderPicker } from './FolderPicker'
 
 const MARK = { ok: '✓', missing: '✕' } as const
 const WORD = { ok: 'OK', missing: '無い' } as const
@@ -13,6 +14,7 @@ export function EnvTab() {
   const [setup, setSetup] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [picking, setPicking] = useState<'comfyui' | 'gemx' | null>(null)
 
   const check = async () => {
     setBusy(true)
@@ -42,10 +44,10 @@ export function EnvTab() {
       .catch(() => check())
   }, [])
 
-  const save = async () => {
+  const save = async (next: Settings = form) => {
     setBusy(true)
     try {
-      const s = await api.saveSettings(form)
+      const s = await api.saveSettings(next)
       setSettings(s)
       setForm({ comfyuiPath: s.comfyuiPath, comfyuiUrl: s.comfyuiUrl, gemxPath: s.gemxPath })
     } catch (e) {
@@ -61,7 +63,12 @@ export function EnvTab() {
         <p className="muted small">パスを空にすると、プロジェクトの vendor/ の下（vendor/ComfyUI・vendor/GEM-X）を見ます。無ければセットアップの依頼文に「vendor/ に clone して作る」と書きます。</p>
         <label className="field">
           <span>ComfyUI のパス</span>
-          <input value={form.comfyuiPath} placeholder="空 → vendor/ComfyUI" onChange={(e) => setForm({ ...form, comfyuiPath: e.target.value })} />
+          <span className="row">
+            <input className="grow" value={form.comfyuiPath} placeholder="空 → vendor/ComfyUI" onChange={(e) => setForm({ ...form, comfyuiPath: e.target.value })} />
+            <button type="button" disabled={busy} onClick={() => setPicking('comfyui')}>
+              フォルダを選ぶ
+            </button>
+          </span>
           {settings && <small className="muted">見る所: {settings.resolved.comfyuiPath}</small>}
         </label>
         <label className="field">
@@ -70,11 +77,16 @@ export function EnvTab() {
         </label>
         <label className="field">
           <span>GEM-X のパス</span>
-          <input value={form.gemxPath} placeholder="空 → vendor/GEM-X" onChange={(e) => setForm({ ...form, gemxPath: e.target.value })} />
+          <span className="row">
+            <input className="grow" value={form.gemxPath} placeholder="空 → vendor/GEM-X" onChange={(e) => setForm({ ...form, gemxPath: e.target.value })} />
+            <button type="button" disabled={busy} onClick={() => setPicking('gemx')}>
+              フォルダを選ぶ
+            </button>
+          </span>
           {settings && <small className="muted">見る所: {settings.resolved.gemxPath}</small>}
         </label>
         <div className="row">
-          <button className="primary" disabled={busy} onClick={save}>
+          <button className="primary" disabled={busy} onClick={() => save()}>
             保存して調べる
           </button>
           <button disabled={busy} onClick={check}>
@@ -82,6 +94,21 @@ export function EnvTab() {
           </button>
         </div>
         {error && <p className="error">{error}</p>}
+        {picking && (
+          <FolderPicker
+            kind={picking}
+            title={picking === 'comfyui' ? 'ComfyUI のフォルダを選ぶ' : 'GEM-X のフォルダを選ぶ'}
+            // 今の欄の値 → 実際に見ている所（空なら vendor/ の既定）から開く
+            start={picking === 'comfyui' ? [form.comfyuiPath, settings?.resolved.comfyuiPath ?? ''] : [form.gemxPath, settings?.resolved.gemxPath ?? '']}
+            onClose={() => setPicking(null)}
+            onPick={(path) => {
+              const next = { ...form, [picking === 'comfyui' ? 'comfyuiPath' : 'gemxPath']: path }
+              setPicking(null)
+              setForm(next)
+              save(next)
+            }}
+          />
+        )}
       </section>
       <section className="card">
         <div className="row between">

@@ -161,6 +161,32 @@ export interface Quality {
   inPlace?: boolean
 }
 
+/** フォルダの手がかり（ComfyUI らしい: main.py と custom_nodes/ がある・GEM-X らしい: .venv と scripts/demo/ がある） */
+export type FolderHint = 'comfyui' | 'gemx'
+
+/** GET /api/fs/dirs の答え（フォルダを選ぶダイアログ） */
+export interface DirListing {
+  /** 今のフォルダ（絶対パス） */
+  path: string
+  /** 一つ上（ルートなら null） */
+  parent: string | null
+  /** パスの区切り（/ か \） */
+  sep: string
+  home: string
+  /** ルート（Windows ならあるドライブ） */
+  roots: string[]
+  /** パンくず（ルートから今のフォルダまで） */
+  crumbs: { name: string; path: string }[]
+  /** 今のフォルダの手がかり */
+  hints: FolderHint[]
+  /** 中のフォルダ（名前順。ファイルは入らない）。link はシンボリックリンク */
+  dirs: { name: string; path: string; link?: boolean; hints: FolderHint[] }[]
+  /** 隠しフォルダ（. で始まる）の数 */
+  hiddenCount: number
+  /** 多すぎて途中で切ったか */
+  truncated: boolean
+}
+
 /** 画面の尺の選択肢（秒） */
 export const DURATIONS = [5, 6, 8, 10] as const
 
