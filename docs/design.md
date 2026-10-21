@@ -302,7 +302,7 @@ h3-motion-creator のセットアップの依頼です。
 決まり:
 - 既にある ComfyUI・システムの CUDA とドライバは変えない。新しく入れる物はプロジェクトの vendor/ の中に。
 - 動いている ComfyUI を止める・再起動するときは、先に人に確かめる。
-- モデルの重みは配布元から取り、THIRD_PARTY_NOTICES.md の決まりを確かめる。アプリのリポジトリには入れない。
+- モデルの重みは配布元から取り、それぞれの配布元の決まりに従う。アプリのリポジトリには入れない。
 - vendor/ に作ったら PUT /api/settings にそのパスを書く。
 - 終わったら GET /api/env がすべて OK（free_vram は任意）になるのを確かめ、入れた物と版を報告する。
 ```
@@ -465,11 +465,9 @@ glb（glTF 2.0 ＋ `VRMC_vrm_animation` 1.0）。`humanoid.humanBones` に VRM �
 ## 14. ライセンスの方針
 
 - アプリのコードは **Apache-2.0**（`LICENSE`）。同梱のワークフローの JSON・`tools/` の道具も含む。同梱する他者のコードの著作権とライセンスの表記は `THIRD_PARTY_NOTICES.md` にまとめる
-- **モデルの重みは同梱しない**。セットアップのときに、使う人の環境へ配布元から取る
+- **モデルの重みは同梱しない**。セットアップのときに、使う人の環境へ配布元から取る。使うモデルはそれぞれの配布元の決まりに従い、アプリは重みの条項を説明・表示しない
 - **ComfyUI は同梱しない**（GPL-3.0）。HTTP の API で話すだけで、ComfyUI のコードを読み込まない。カスタムノードも同梱しない
-- `THIRD_PARTY_NOTICES.md` に並べる物: npm の依存（three.js・three-vrm は MIT。表記を残す）、GEM-X（コード Apache-2.0・重み NVIDIA Open Model License。出力の持ち主を主張しない）、
-  SAM 3D Body の重み（SAM License。配るなら写しを付ける・用途の禁止）、SOMA・MHR・YOLOX（Apache-2.0）・ByteTrack（MIT）、ComfyUI（同梱しない）、
-  MiniMax H3 の重み（MiniMax H3 Community License。使ってよい地域と用途の制限・商用の画面の表示）、YOLOX の重み（Human-Art でも学習。データの決まりは要確認）
-- 画面の下の端に、動画の生成に MiniMax H3 を使うこと・重みを同梱しないことを出す
+- `THIRD_PARTY_NOTICES.md` はリポジトリに入れた物の表記が中心: 写したワークフローの JSON と書き直して入れたコード（MIT）、npm の依存（three.js・three-vrm は MIT。表記を残す）。
+  同梱しない物（ComfyUI・カスタムノード・GEM-X とその中のコード）は扱いだけを並べ、モデルの重みは「同梱しない。配布元の決まりに従う」の 1 行にまとめる
 - 読み込む VRM は、メタ情報の利用条件を読み込み時に画面に出し、作者のみ・商用の範囲・改変不可・クレジットが要る、には注意を出す。作ってよいかは使う人が確かめる
-- 作った動画は MiniMax H3 の決まりと元の VRM の決まりに、骨と `.vrma` は元の動画の決まりに従う。`.vrma` に著作権の表示は書かない
+- 作った動画は使ったモデルの決まりと元の VRM の決まりに、骨と `.vrma` は元の動画の決まりに従う。`.vrma` に著作権の表示は書かない

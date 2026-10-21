@@ -8,7 +8,7 @@ h3-motion-creator の画面の「環境チェック／設定」が作ったセ�
 - **既にある ComfyUI・システムの CUDA とドライバは変えない**。既にある ComfyUI の venv に足すのは、足りない物（カスタムノードの requirements・SageAttention）だけ
 - 設定のパスが空の物は、**プロジェクトの `vendor/` の中に clone して作る**（`vendor/ComfyUI`・`vendor/GEM-X`。`vendor/` は git の外）
 - 動いている ComfyUI を止める・再起動するのは、人に確かめてから
-- モデルの重みは配布元から取る。アプリのリポジトリには入れない。使う前に `THIRD_PARTY_NOTICES.md` の決まり（特に MiniMax H3 の使ってよい地域・用途）を確かめ、人に伝える
+- モデルの重みは配布元から取る。アプリのリポジトリには入れない。使うモデルはそれぞれの配布元の決まりに従う
 - sudo が要る物（ドライバ・ffmpeg など）は人に頼む
 - 終わったら、作ったパスを設定に書き（§7）、`GET /api/env` がすべて OK（free_vram は任意）になるのを確かめて、入れた物と版を報告する
 
@@ -84,8 +84,6 @@ hf download Kijai/MiniMax-H3-experimental minimax_h3_fl2va_pruned_w4a8_mixed.saf
 ```
 
 - 合わせて 35GB ほど。ディスクの空きを先に見る
-- 重みはどれも MiniMax H3 Community License（`https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE`）の決まりに従う（使ってよい地域・用途の制限がある）。
-  配布元のページの決まりも読み、`THIRD_PARTY_NOTICES.md` と食い違えば人に伝える
 
 ## 4. GEM-X（パスが空で、vendor/GEM-X に作るとき）
 

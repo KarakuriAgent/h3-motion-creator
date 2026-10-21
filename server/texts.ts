@@ -99,7 +99,7 @@ export function setupRequestText(env: EnvReport, c: TextContext): string | null 
     '決まり:',
     '- 既にある ComfyUI・システムの CUDA とドライバは変えない（ComfyUI の venv に足すのは、足りない物だけ）。新しく入れる物はプロジェクトの vendor/ の中に。',
     '- 動いている ComfyUI を止める・再起動するときは、先に人に確かめる。',
-    '- モデルの重みは配布元から取り、THIRD_PARTY_NOTICES.md の決まりを確かめる。アプリのリポジトリには入れない。',
+    '- モデルの重みは配布元から取り、それぞれの配布元の決まりに従う。アプリのリポジトリには入れない。',
     `- vendor/ に作ったら PUT ${c.serverUrl}/api/settings にそのパスを書く（例: {"gemxPath": "${c.appRoot}/vendor/GEM-X"}）。`,
     `- 終わったら GET ${c.serverUrl}/api/env がすべて OK（free_vram は任意）になるのを確かめ、入れた物と版を報告する。`,
   ]

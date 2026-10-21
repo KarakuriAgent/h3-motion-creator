@@ -66,5 +66,5 @@ npm test
 
 ## ライセンス
 
-アプリのコードは Apache License 2.0（`LICENSE`）。モデルの重みは同梱しない。使う物の決まりは `THIRD_PARTY_NOTICES.md`。
-動画の生成に MiniMax H3（MiniMax H3 Community License。使ってよい地域・用途に制限がある）、骨の推定に GEM-X（NVIDIA。重みは NVIDIA Open Model License）を使う。
+アプリのコードは Apache License 2.0（`LICENSE`）。リポジトリに入れた他者の物の表記は `THIRD_PARTY_NOTICES.md`。
+モデルの重みは同梱しない。使うモデルはそれぞれの配布元の決まりに従う。

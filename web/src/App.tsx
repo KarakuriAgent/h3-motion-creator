@@ -46,9 +46,6 @@ export function App() {
         {tab === 'request' && <RequestTab onGoReview={() => go('review')} />}
         {tab === 'review' && <ReviewTab />}
       </main>
-      <footer className="foot muted">
-        動画の生成は MiniMax H3（MiniMax H3 Community License）・骨の推定は GEM-X（NVIDIA）。モデルの重みは同梱していません。決まりは THIRD_PARTY_NOTICES.md
-      </footer>
     </div>
   )
 }

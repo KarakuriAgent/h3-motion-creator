@@ -250,7 +250,7 @@ export function judgeEnv(f: EnvFacts, ctx: EnvContext): EnvReport {
       label,
       state: missing.length ? 'missing' : 'ok',
       detail: ms.map((m) => `${m.need.name.replace(/\.safetensors$/, '')}${missing.includes(m) ? '（無い）' : ''}`).join(' · '),
-      fix: missing.length ? `ComfyUI の models/ に入れる: ${missing.map((m) => `${m.need.folder}/${m.need.name}`).join('、')}（配布元は docs/setup.md §3。ライセンスは THIRD_PARTY_NOTICES.md）` : undefined,
+      fix: missing.length ? `ComfyUI の models/ に入れる: ${missing.map((m) => `${m.need.folder}/${m.need.name}`).join('、')}（配布元は docs/setup.md §3）` : undefined,
     }
   }
   items.push(modelItem('main'))

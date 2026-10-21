@@ -77,10 +77,6 @@ body {
   border-color: var(--ui);
   color: #fff;
 }
-.foot {
-  margin-top: 24px;
-  font-size: 12px;
-}
 h2 {
   font-size: 17px;
   margin: 0 0 8px;
